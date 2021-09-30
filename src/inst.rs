@@ -1,4 +1,6 @@
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
+
 pub enum Register {
     R0,
     R1,
@@ -22,6 +24,7 @@ pub enum Register {
 #[derive(Debug, Clone)]
 pub struct Label(pub String);
 
+#[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Imm {
     Int(i64),
@@ -30,7 +33,6 @@ pub enum Imm {
 
 impl Imm {
     pub fn as_u64(&self) -> u64 {
-        // SAFETY: We transmute here because we are basically trying to emulate the `bitcast` LLVM instruction.
         match self {
             Self::Int(int_value) => *int_value as u64,
             Self::Float(float_value) => float_value.to_bits(),
@@ -44,6 +46,7 @@ pub struct Block {
     pub insts: Vec<Inst>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub enum Inst {
     // Useful for debugging purposes prints the registers contents

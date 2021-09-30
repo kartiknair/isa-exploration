@@ -5,7 +5,7 @@ mod vm;
 
 const MEMORY_SIZE: usize = 128_000;
 
-use inst::{Block, Imm, Inst, Label, Register};
+use inst::{Block, Imm, Inst, Register};
 
 fn main() {
     let mut vm = vm::VM::<MEMORY_SIZE>::new();
@@ -55,7 +55,7 @@ fn main() {
         Block {
             label: "main".to_string(),
             insts: vec![
-                Inst::Rega(Register::R8, Imm::Float(56.234)),
+                Inst::Rega(Register::R8, Imm::Int(56)),
                 Inst::Store(Register::R16, Register::R8),
                 Inst::Load(Register::R9, Register::R16),
                 Inst::Dbg(Register::R8),

@@ -196,10 +196,10 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 }
             }
             Inst::SAdd(dst, lhs, rhs) => {
-                let lhs_value: i64 = unsafe { std::mem::transmute(self.registers.get(lhs)) };
-                let rhs_value: i64 = unsafe { std::mem::transmute(self.registers.get(rhs)) };
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
                 let sum = lhs_value + rhs_value;
-                self.registers.set(dst, unsafe { std::mem::transmute(sum) })
+                self.registers.set(dst, sum as u64)
             }
         }
     }
