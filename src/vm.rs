@@ -204,11 +204,128 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                     panic!("undefined target label ID in `branch`")
                 }
             }
+
+            // Arithmetic operations
             Inst::SAdd(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs) as i64;
                 let rhs_value = self.registers.get(rhs) as i64;
                 let sum = lhs_value + rhs_value;
                 self.registers.set(dst, sum as u64)
+            }
+            Inst::UAdd(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let sum = lhs_value + rhs_value;
+                self.registers.set(dst, sum)
+            }
+            Inst::Sub(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let sum = lhs_value - rhs_value;
+                self.registers.set(dst, sum)
+            }
+            Inst::SMul(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
+                let product = lhs_value * rhs_value;
+                self.registers.set(dst, product as u64)
+            }
+            Inst::UMul(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let product = lhs_value * rhs_value;
+                self.registers.set(dst, product)
+            }
+            Inst::SDiv(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
+                let quotient = lhs_value / rhs_value;
+                self.registers.set(dst, quotient as u64)
+            }
+            Inst::UDiv(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let quotient = lhs_value / rhs_value;
+                self.registers.set(dst, quotient)
+            }
+            Inst::SRem(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
+                let remainder = lhs_value % rhs_value;
+                self.registers.set(dst, remainder as u64)
+            }
+            Inst::URem(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let remainder = lhs_value % rhs_value;
+                self.registers.set(dst, remainder)
+            }
+            Inst::FAdd(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                let sum = lhs_value + rhs_value;
+                self.registers.set(dst, sum.to_bits())
+            }
+            Inst::FSub(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                let difference = lhs_value - rhs_value;
+                self.registers.set(dst, difference.to_bits())
+            }
+            Inst::FMul(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                let product = lhs_value * rhs_value;
+                self.registers.set(dst, product.to_bits())
+            }
+            Inst::FDiv(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                let quotient = lhs_value / rhs_value;
+                self.registers.set(dst, quotient.to_bits())
+            }
+            Inst::FRem(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                let remainder = lhs_value % rhs_value;
+                self.registers.set(dst, remainder.to_bits())
+            }
+
+            // Bitwise operations
+            Inst::Shl(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let result = lhs_value << rhs_value;
+                self.registers.set(dst, result)
+            }
+            Inst::Shr(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let result = lhs_value >> rhs_value;
+                self.registers.set(dst, result)
+            }
+            Inst::And(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let result = lhs_value & rhs_value;
+                self.registers.set(dst, result)
+            }
+            Inst::Or(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let result = lhs_value | rhs_value;
+                self.registers.set(dst, result)
+            }
+            Inst::Xor(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                let result = lhs_value ^ rhs_value;
+                self.registers.set(dst, result)
+            }
+            Inst::Not(dst, src) => {
+                let value = self.registers.get(src);
+                let result = !value;
+                self.registers.set(dst, result)
             }
         }
     }

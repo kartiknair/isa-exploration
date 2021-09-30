@@ -87,32 +87,31 @@ pub enum Inst {
     CJump(Register, Label),
     Branch(Register, Label, Label),
 
-    // // Binary operations
-    // Shl(Register, Register, Register),
-    // LShr(Register, Register, Register),
-    // AShr(Register, Register, Register),
-    // And(Register, Register, Register),
-    // Or(Register, Register, Register),
-    // Xor(Register, Register, Register),
-    // Not(Register, Register),
+    // Binary operations
+    Shl(Register, Register, Register),
+    Shr(Register, Register, Register),
+    And(Register, Register, Register),
+    Or(Register, Register, Register),
+    Xor(Register, Register, Register),
+    Not(Register, Register),
 
     // Arithmetic operations
     SAdd(Register, Register, Register),
-    // UAdd(Register, Register, Register),
-    // FAdd(Register, Register, Register),
+    UAdd(Register, Register, Register),
+    FAdd(Register, Register, Register),
 
-    // Sub(Register, Register, Register),
-    // FSub(Register, Register, Register),
+    Sub(Register, Register, Register),
+    FSub(Register, Register, Register),
 
-    // SMul(Register, Register, Register),
-    // UMul(Register, Register, Register),
-    // FMul(Register, Register, Register),
+    SMul(Register, Register, Register),
+    UMul(Register, Register, Register),
+    FMul(Register, Register, Register),
 
-    // SDiv(Register, Register, Register),
-    // UDiv(Register, Register, Register),
-    // FDiv(Register, Register, Register),
+    SDiv(Register, Register, Register),
+    UDiv(Register, Register, Register),
+    FDiv(Register, Register, Register),
 
-    // SRem(Register, Register, Register),
-    // URem(Register, Register, Register),
-    // FRem(Register, Register, Register),
+    SRem(Register, Register, Register),
+    URem(Register, Register, Register),
+    FRem(Register, Register, Register),
 }

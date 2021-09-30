@@ -7,6 +7,35 @@ const MEMORY_SIZE: usize = 128_000;
 
 use inst::{Block, Imm, Inst, Register};
 
+/*
+Deft code:
+
+    fun main() {
+        var a = 32;
+        var b = 56;
+        var c = a + b;
+        print c;
+    }
+
+Assembly:
+
+    main:
+        rega %8 8
+
+        rega %9 32
+        store %16 %8
+        add %16 %8
+
+        rega %9 56
+        store %16 %8
+        add %16 %8
+
+        load %10 %16
+        add %9 %10 %11
+        store %16 %8
+        add %16 %8
+*/
+
 fn main() {
     let mut vm = vm::VM::<MEMORY_SIZE>::new();
 
