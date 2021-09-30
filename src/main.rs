@@ -55,7 +55,7 @@ fn main() {
         Block {
             label: "main".to_string(),
             insts: vec![
-                Inst::Rega(Register::R8, Imm::Int(56)),
+                Inst::Rega(Register::R8, Imm::Float(56.234)),
                 Inst::Store(Register::R16, Register::R8),
                 Inst::Load(Register::R9, Register::R16),
                 Inst::Dbg(Register::R8),

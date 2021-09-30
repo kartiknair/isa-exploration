@@ -21,6 +21,30 @@ pub enum Register {
     R16,
 }
 
+impl Register {
+    pub fn get_id(&self) -> u8 {
+        match self {
+            Self::R0 => 0,
+            Self::R1 => 1,
+            Self::R2 => 2,
+            Self::R3 => 3,
+            Self::R4 => 4,
+            Self::R5 => 5,
+            Self::R6 => 6,
+            Self::R7 => 7,
+            Self::R8 => 8,
+            Self::R9 => 9,
+            Self::R10 => 10,
+            Self::R11 => 11,
+            Self::R12 => 12,
+            Self::R13 => 13,
+            Self::R14 => 14,
+            Self::R15 => 15,
+            Self::R16 => 16,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Label(pub String);
 

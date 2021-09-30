@@ -109,7 +109,16 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
 
     pub fn interpret_inst(&mut self, inst: &Inst) {
         match inst {
-            Inst::Dbg(reg) => println!("{}", self.registers.get(reg)),
+            Inst::Dbg(reg) => {
+                let raw_value = self.registers.get(reg);
+                println!(
+                    "r{} = int {}, uint {}, float {}",
+                    reg.get_id(),
+                    raw_value as i64,
+                    raw_value,
+                    f64::from_bits(raw_value),
+                );
+            }
             Inst::Rega(dst, value) => self.registers.set(dst, value.as_u64()),
             Inst::Copy(dst, src) => self.registers.set(dst, self.registers.get(src)),
             Inst::Load(dst, adr) => {
