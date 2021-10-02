@@ -295,37 +295,77 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
             Inst::Shl(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs);
                 let rhs_value = self.registers.get(rhs);
-                let result = lhs_value << rhs_value;
-                self.registers.set(dst, result)
+                self.registers.set(dst, lhs_value << rhs_value)
             }
             Inst::Shr(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs);
                 let rhs_value = self.registers.get(rhs);
-                let result = lhs_value >> rhs_value;
-                self.registers.set(dst, result)
+                self.registers.set(dst, lhs_value >> rhs_value)
             }
             Inst::And(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs);
                 let rhs_value = self.registers.get(rhs);
-                let result = lhs_value & rhs_value;
-                self.registers.set(dst, result)
+                self.registers.set(dst, lhs_value & rhs_value)
             }
             Inst::Or(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs);
                 let rhs_value = self.registers.get(rhs);
-                let result = lhs_value | rhs_value;
-                self.registers.set(dst, result)
+                self.registers.set(dst, lhs_value | rhs_value)
             }
             Inst::Xor(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs);
                 let rhs_value = self.registers.get(rhs);
-                let result = lhs_value ^ rhs_value;
-                self.registers.set(dst, result)
+                self.registers.set(dst, lhs_value ^ rhs_value)
             }
             Inst::Not(dst, src) => {
                 let value = self.registers.get(src);
                 let result = !value;
                 self.registers.set(dst, result)
+            }
+
+            // Comparative operations
+            Inst::Eq(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                self.registers.set(dst, (lhs_value == rhs_value) as u64)
+            }
+            Inst::FEq(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                self.registers
+                    .set(dst, ((lhs_value - rhs_value).abs() < f64::EPSILON) as u64)
+            }
+
+            Inst::SLt(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
+                self.registers.set(dst, (lhs_value < rhs_value) as u64)
+            }
+            Inst::ULt(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                self.registers.set(dst, (lhs_value < rhs_value) as u64)
+            }
+            Inst::FLt(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                self.registers.set(dst, (lhs_value < rhs_value) as u64)
+            }
+
+            Inst::SGt(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
+                self.registers.set(dst, (lhs_value > rhs_value) as u64)
+            }
+            Inst::UGt(dst, lhs, rhs) => {
+                let lhs_value = self.registers.get(lhs);
+                let rhs_value = self.registers.get(rhs);
+                self.registers.set(dst, (lhs_value > rhs_value) as u64)
+            }
+            Inst::FGt(dst, lhs, rhs) => {
+                let lhs_value = f64::from_bits(self.registers.get(lhs));
+                let rhs_value = f64::from_bits(self.registers.get(rhs));
+                self.registers.set(dst, (lhs_value > rhs_value) as u64)
             }
         }
     }

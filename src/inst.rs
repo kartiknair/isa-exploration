@@ -48,6 +48,12 @@ impl Register {
 #[derive(Debug, Clone)]
 pub struct Label(pub String);
 
+impl Label {
+    pub fn new(name: &str) -> Self {
+        Self(name.to_string())
+    }
+}
+
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Imm {
@@ -114,4 +120,16 @@ pub enum Inst {
     SRem(Register, Register, Register),
     URem(Register, Register, Register),
     FRem(Register, Register, Register),
+
+    // Comparative operators
+    Eq(Register, Register, Register),
+    FEq(Register, Register, Register),
+    
+    SLt(Register, Register, Register),
+    ULt(Register, Register, Register),
+    FLt(Register, Register, Register),
+
+    SGt(Register, Register, Register),
+    UGt(Register, Register, Register),
+    FGt(Register, Register, Register),
 }
