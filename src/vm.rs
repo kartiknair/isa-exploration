@@ -119,6 +119,12 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                     f64::from_bits(raw_value),
                 );
             }
+            Inst::PrintInt(reg) => {
+                println!("{}", self.registers.get(reg) as i64);
+            }
+            Inst::PrintFloat(reg) => {
+                println!("{}", f64::from_bits(self.registers.get(reg)));
+            }
             Inst::Rega(dst, value) => self.registers.set(dst, value.as_u64()),
             Inst::Copy(dst, src) => self.registers.set(dst, self.registers.get(src)),
             Inst::Load(dst, adr) => {
