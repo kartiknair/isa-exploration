@@ -366,25 +366,58 @@ impl<'a> Analyzer<'a> {
                         }
 
                         if let ast::TypeKind::Prim(prim_type) = &left_expr_type.kind {
-                            if prim_type.is_numeric() {
-                                expr.typ = Some(left_expr_type.clone());
-                                return Ok(());
+                            match &binary_expr.op.kind {
+                                token::TokenKind::Equal => {
+                                    expr.typ = Some(left_expr_type.clone());
+                                }
+
+                                token::TokenKind::Plus
+                                | token::TokenKind::Minus
+                                | token::TokenKind::Star
+                                | token::TokenKind::Slash
+                                | token::TokenKind::Percent => {
+                                    if !prim_type.is_numeric() {
+                                        return Err(Error {
+                                            message:
+                                                "binary expressions are only valid on primitive numeric operands"
+                                                    .into(),
+                                            span: expr.span.clone(),
+                                        });
+                                    }
+
+                                    expr.typ = Some(left_expr_type.clone());
+                                }
+                                token::TokenKind::Lesser
+                                | token::TokenKind::Greater
+                                | token::TokenKind::LesserEqual
+                                | token::TokenKind::GreaterEqual
+                                | token::TokenKind::EqualEqual
+                                | token::TokenKind::BangEqual => {
+                                    expr.typ = Some(ast::Type {
+                                        span: 0..0,
+                                        kind: ast::TypeKind::Prim(ast::PrimType::Bool),
+                                    });
+                                }
+                                token::TokenKind::AndAnd | token::TokenKind::OrOr => {
+                                    if !matches!(prim_type, ast::PrimType::Bool) {
+                                        return Err(Error {
+                                            message:
+                                                "operator `&&` & `||` can only be used with boolean operands"
+                                                    .into(),
+                                            span: expr.span.clone(),
+                                        });
+                                    }
+                                }
+                                _ => unreachable!(),
                             }
                         }
-
-                        return Err(Error {
-                            message:
-                                "binary expressions can only be done on primitive numeric types"
-                                    .into(),
-                            span: expr.span.clone(),
-                        });
                     }
+                } else {
+                    return Err(Error {
+                        message: "cannot use void expression in a binary expression".into(),
+                        span: expr.span.clone(),
+                    });
                 }
-
-                return Err(Error {
-                    message: "cannot use void expression in a binary expression".into(),
-                    span: expr.span.clone(),
-                });
             }
             ast::ExprKind::Var(var_expr) => {
                 let var_name = self.file.lexeme(&var_expr.ident.span);

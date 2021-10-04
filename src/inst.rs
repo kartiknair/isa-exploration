@@ -58,6 +58,8 @@ impl Label {
 pub enum Imm {
     Int(i64),
     Float(f64),
+    True,
+    False,
 }
 
 impl Imm {
@@ -65,6 +67,8 @@ impl Imm {
         match self {
             Self::Int(int_value) => *int_value as u64,
             Self::Float(float_value) => float_value.to_bits(),
+            Self::True => u64::MAX,
+            Self::False => 0,
         }
     }
 }
@@ -158,6 +162,8 @@ impl Inst {
                 match imm {
                     Imm::Int(i) => i.to_string(),
                     Imm::Float(f) => f.to_string(),
+                    Imm::True => "true".to_string(),
+                    Imm::False => "false".to_string(),
                 }
             ),
             Self::Copy(dst, src) => format!("copy %{} %{}", dst.get_id(), src.get_id()),

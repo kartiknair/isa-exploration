@@ -38,7 +38,7 @@ impl<'a> Generator<'a> {
         match &stmt.kind {
             ast::StmtKind::Fun(fun_decl) => {
                 let fun_init_block = inst::Block {
-                    label: format!("{}_init", self.file.lexeme(&fun_decl.ident.span)),
+                    label: self.file.lexeme(&fun_decl.ident.span).to_string(),
                     insts: Vec::new(),
                 };
                 self.blocks.push(fun_init_block);
@@ -47,7 +47,7 @@ impl<'a> Generator<'a> {
                     self.gen_stmt(stmt);
                 }
             }
-            ast::StmtKind::Struct(struct_decl) => todo!(),
+            ast::StmtKind::Struct(struct_decl) => {}
 
             ast::StmtKind::Var(var_stmt) => {
                 let mut current_block = if let Some(current_block) = self.blocks.last() {
@@ -88,16 +88,44 @@ impl<'a> Generator<'a> {
     fn gen_expression(&mut self, expr: &ast::Expr, block: &mut inst::Block) -> Register {
         match &expr.kind {
             ast::ExprKind::Unary(unary_expr) => {
-                let target_reg = self.gen_expression(&(*unary_expr.expr), block);
+                let operand_reg = self.gen_expression(&(*unary_expr.expr), block);
+                let result_reg = self.get_tmp_reg();
+
                 match &unary_expr.op.kind {
-                    token::TokenKind::Minus => {
-                        todo!()
-                    }
+                    token::TokenKind::Minus => match &unary_expr.expr.typ.as_ref().unwrap().kind {
+                        ast::TypeKind::Prim(prim_type) => match &prim_type {
+                            ast::PrimType::Int(_) | ast::PrimType::UInt(_) => {
+                                block
+                                    .insts
+                                    .push(inst::Inst::Rega(result_reg, inst::Imm::Int(0)));
+                                block.insts.push(inst::Inst::Sub(
+                                    result_reg,
+                                    result_reg,
+                                    operand_reg,
+                                ));
+                            }
+                            ast::PrimType::Float(_) => {
+                                block
+                                    .insts
+                                    .push(inst::Inst::Rega(result_reg, inst::Imm::Float(0.0)));
+                                block.insts.push(inst::Inst::FSub(
+                                    result_reg,
+                                    result_reg,
+                                    operand_reg,
+                                ));
+                            }
+                            _ => unreachable!(),
+                        },
+                        _ => unreachable!(),
+                    },
                     token::TokenKind::Bang => {
-                        todo!()
+                        block.insts.push(inst::Inst::Not(result_reg, operand_reg));
                     }
                     _ => unreachable!(),
                 }
+
+                self.make_reg_available(&operand_reg);
+                result_reg
             }
             ast::ExprKind::Binary(binary_expr) => {
                 if binary_expr.op.kind == token::TokenKind::Equal {
@@ -321,10 +349,10 @@ impl<'a> Generator<'a> {
                         block.insts.push(inst::Inst::Rega(reg, float_value));
                     }
                     token::TokenKind::True => {
-                        block.insts.push(inst::Inst::Rega(reg, inst::Imm::Int(1)));
+                        block.insts.push(inst::Inst::Rega(reg, inst::Imm::True));
                     }
                     token::TokenKind::False => {
-                        block.insts.push(inst::Inst::Rega(reg, inst::Imm::Int(0)));
+                        block.insts.push(inst::Inst::Rega(reg, inst::Imm::False));
                     }
                     _ => unreachable!(),
                 }

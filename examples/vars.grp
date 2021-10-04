@@ -3,4 +3,7 @@ fun main() {
     var n2 = 56
     var n3 = 36
     var n4 = n1 + n2 * n3
+    
+    var b1 = n2 < n3
+    var b2 = !b1
 }
