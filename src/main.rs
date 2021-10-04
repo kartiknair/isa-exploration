@@ -1,71 +1,33 @@
+use std::{borrow::Borrow, env, ops::Range, process::exit};
+
+use ariadne::{Label, Report, ReportKind, Source, Span};
+use common::Error;
+
 mod analyzer;
 mod ast;
 mod codegen;
+mod common;
 mod inst;
 mod lexer;
 mod parser;
-mod shared;
+mod token;
 mod vm;
 
-use std::{env, fs, process::exit};
+fn report_error_and_exit(file: &ast::File, err: Error) -> ! {
+    let filename = file
+        .path
+        .as_path()
+        .as_os_str()
+        .to_str()
+        .expect("could not convert file path to string");
 
-const MEMORY_SIZE: usize = 128_000;
+    Report::build(ReportKind::Error, filename, err.span.start)
+        .with_label(Label::new((filename, err.span)).with_message(err.message))
+        .finish()
+        .print((filename, Source::from(&file.source)))
+        .unwrap();
 
-fn fail(message: &str) {
-    eprintln!("{}", message);
     exit(1);
-}
-
-fn format_err(filename: &str, err: &shared::Error) -> String {
-    format!(
-        "{}:{}:{}: {}",
-        filename, err.pos.line, err.pos.column, err.message
-    )
-}
-
-fn run_file(filename: &str) {
-    let contents = match fs::read_to_string(filename) {
-        Ok(contents) => contents,
-        Err(file_error) => {
-            fail(&format!(
-                "Could not read file: '{}'\n{}",
-                filename,
-                file_error.to_string()
-            ));
-            unreachable!();
-        }
-    };
-
-    let tokens = match lexer::lex(&contents) {
-        Ok(tokens) => tokens,
-        Err(err) => {
-            fail(&format_err(filename, &err));
-            unreachable!();
-        }
-    };
-
-    let mut expressions = match parser::parse(&tokens) {
-        Ok(expr) => expr,
-        Err(err) => {
-            fail(&format_err(filename, &err));
-            unreachable!();
-        }
-    };
-
-    expressions = match analyzer::analyze(&expressions) {
-        Ok(analyzed_exprs) => analyzed_exprs,
-        Err(err) => {
-            fail(&format_err(filename, &err));
-            unreachable!();
-        }
-    };
-
-    let blocks = codegen::gen(&expressions);
-    for block in &blocks {
-        println!("{}", block.as_asm());
-    }
-    let mut machine = vm::VM::<MEMORY_SIZE>::new();
-    machine.interpret(&blocks);
 }
 
 fn main() {
@@ -73,15 +35,50 @@ fn main() {
 
     if args.len() != 2 {
         eprintln!(
-            r#"Expected only one argument.
-
+            r#"
 Usage:
+
 {} [filename]
+
+Arguments:
+
+filename = Path to the file that you would like to compile
 "#,
             args[0]
         );
         exit(1);
     }
 
-    run_file(&args[1]);
+    let mut file = match ast::File::new(&args[1]) {
+        Ok(file) => file,
+        Err(err) => {
+            eprintln!("{}", err.to_string());
+            exit(1);
+        }
+    };
+
+    let tokens = match lexer::lex(&file.source) {
+        Ok(tokens) => tokens,
+        Err(err) => report_error_and_exit(&file, err),
+    };
+
+    file.stmts = match parser::parse(&tokens) {
+        Ok(stmts) => stmts,
+        Err(err) => report_error_and_exit(&file, err),
+    };
+
+    if let Err(err) = analyzer::analyze_mut(&mut file) {
+        report_error_and_exit(&file, err)
+    };
+
+    let blocks = codegen::gen(&file);
+
+    const MEMORY_SIZE: usize = 128_000; // 128 KiB
+    let mut machine = vm::VM::<MEMORY_SIZE>::new();
+    if cfg!(debug_assertions) {
+        for block in &blocks {
+            println!("{}", block.as_asm())
+        }
+    }
+    machine.interpret(&blocks);
 }

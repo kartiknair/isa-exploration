@@ -1,9 +1,6 @@
-n1 := 45;
-n2 := 56;
-n3 := 36;
-n4 := n1 + n2 * n3;
-
-print n1;
-print n2;
-print n3;
-print n4;
+fun main() {
+    var n1 = 45
+    var n2 = 56
+    var n3 = 36
+    var n4 = n1 + n2 * n3
+}

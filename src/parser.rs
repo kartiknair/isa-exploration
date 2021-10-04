@@ -1,132 +1,606 @@
-use crate::ast;
-use crate::lexer;
-use crate::shared::Error;
+use crate::{
+    ast,
+    common::Error,
+    token::{Token, TokenKind},
+};
 
-#[derive(Debug)]
-pub struct Parser<'a> {
-    pub tokens: &'a [lexer::Token],
+#[derive(Debug, Clone)]
+struct Parser<'a> {
+    tokens: &'a [Token],
+    current: usize,
+}
 
-    cursor: usize,
+#[derive(Debug, Clone, Copy, PartialEq)]
+enum Assoc {
+    Ltr,
+    Rtl,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct OpInfo {
+    prec: u8,
+    assoc: Assoc,
+}
+
+impl TokenKind {
+    fn op_info(&self) -> OpInfo {
+        match self {
+            Self::Dot => OpInfo {
+                prec: 7,
+                assoc: Assoc::Ltr,
+            },
+
+            Self::Percent => OpInfo {
+                prec: 6,
+                assoc: Assoc::Ltr,
+            },
+            Self::Star => OpInfo {
+                prec: 6,
+                assoc: Assoc::Ltr,
+            },
+            Self::Slash => OpInfo {
+                prec: 6,
+                assoc: Assoc::Ltr,
+            },
+
+            Self::Plus => OpInfo {
+                prec: 5,
+                assoc: Assoc::Ltr,
+            },
+            Self::Minus => OpInfo {
+                prec: 5,
+                assoc: Assoc::Ltr,
+            },
+
+            Self::Lesser => OpInfo {
+                prec: 4,
+                assoc: Assoc::Ltr,
+            },
+            Self::LesserEqual => OpInfo {
+                prec: 4,
+                assoc: Assoc::Ltr,
+            },
+            Self::Greater => OpInfo {
+                prec: 4,
+                assoc: Assoc::Ltr,
+            },
+            Self::GreaterEqual => OpInfo {
+                prec: 4,
+                assoc: Assoc::Ltr,
+            },
+
+            Self::EqualEqual => OpInfo {
+                prec: 3,
+                assoc: Assoc::Ltr,
+            },
+            Self::BangEqual => OpInfo {
+                prec: 3,
+                assoc: Assoc::Ltr,
+            },
+
+            Self::AndAnd => OpInfo {
+                prec: 2,
+                assoc: Assoc::Ltr,
+            },
+            Self::OrOr => OpInfo {
+                prec: 2,
+                assoc: Assoc::Ltr,
+            },
+
+            Self::Equal => OpInfo {
+                prec: 1,
+                assoc: Assoc::Ltr,
+            },
+
+            _ => {
+                panic!("`op_info()` has not been implemented for token: {:?}", self)
+            }
+        }
+    }
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(tokens: &'a [lexer::Token]) -> Self {
-        Self { tokens, cursor: 0 }
+    fn new(tokens: &'a [Token]) -> Self {
+        Parser { tokens, current: 0 }
     }
 
-    fn peek(&self) -> &lexer::Token {
-        &self.tokens[self.cursor]
-    }
-
-    fn expect(&mut self, typ: lexer::TokenType, message: &str) -> Result<&lexer::Token, Error> {
-        if self.cursor >= self.tokens.len() {
-            Err(Error {
-                pos: self.tokens.last().unwrap().pos,
-                message: message.into(),
-            })
-        } else if self.peek().typ != typ {
-            Err(Error {
-                pos: self.peek().pos,
-                message: message.into(),
-            })
+    fn peek(&self) -> Result<&Token, Error> {
+        if let Some(token) = self.tokens.get(self.current) {
+            Ok(token)
         } else {
-            self.cursor += 1;
-            Ok(&self.tokens[self.cursor - 1])
+            Err(Error {
+                message: "unexpected end of file".into(),
+                span: self.tokens.last().unwrap().span.clone(),
+            })
         }
     }
 
-    fn parse_expression(&mut self) -> Result<ast::Expression, Error> {
-        let mut expr = match self.peek().typ {
-            lexer::TokenType::LeftBrace => {
-                let lbrace_token = self.peek().clone();
-                let mut exprs = Vec::new();
-                self.cursor += 1;
-
-                while self.cursor < self.tokens.len()
-                    && self.peek().typ != lexer::TokenType::RightBrace
-                {
-                    exprs.push(self.parse_expression()?);
-                    self.expect(
-                        lexer::TokenType::Semicolon,
-                        "expected ';' after expression in block",
-                    )?;
+    fn error_at_current(&self, message: &str) -> Error {
+        Error {
+            message: message.into(),
+            span: {
+                if let Some(token) = self.tokens.get(self.current) {
+                    token.span.clone()
+                } else {
+                    self.tokens.last().unwrap().span.clone()
                 }
+            },
+        }
+    }
 
-                self.expect(lexer::TokenType::RightBrace, "expected '}' to close block")?;
+    fn lookback(&self) -> &Token {
+        if self.current == 0 {
+            panic!("internal-error: parser called lookback on 0-value cursor.")
+        }
 
-                ast::Expression {
-                    variant: ast::ExpressionEnum::Block {
-                        lbrace_token,
-                        exprs,
-                    },
-                    typ: None,
-                }
-            }
-            lexer::TokenType::Ident => {
-                let var_expr = ast::Expression {
-                    variant: ast::ExpressionEnum::Variable(self.peek().clone()),
-                    typ: None,
-                };
-                self.cursor += 1;
-                var_expr
-            }
-            lexer::TokenType::Int | lexer::TokenType::Float => {
-                let literal_value = ast::Expression {
-                    variant: ast::ExpressionEnum::Literal(self.peek().clone()),
-                    typ: None,
-                };
-                self.cursor += 1;
-                literal_value
-            }
-            lexer::TokenType::Print => {
-                self.cursor += 1;
-                let expr = self.parse_expression()?;
-                ast::Expression {
-                    variant: ast::ExpressionEnum::Print(Box::new(expr)),
-                    typ: None,
-                }
-            }
-            _ => {
-                return Err(Error {
-                    pos: self.peek().pos,
-                    message: "unexpected token".into(),
+        &self.tokens[self.current]
+    }
+
+    fn expect(&mut self, kind: TokenKind, message: &str) -> Result<&Token, Error> {
+        if let Some(token) = self.tokens.get(self.current) {
+            if token.kind == kind {
+                self.current += 1;
+                Ok(token)
+            } else {
+                Err(Error {
+                    message: message.into(),
+                    span: token.span.clone(),
                 })
             }
+        } else {
+            Err(Error {
+                message: message.into(),
+                span: self.tokens.last().unwrap().span.clone(),
+            })
+        }
+    }
+
+    fn parse_block(&mut self) -> Result<ast::BlockStmt, Error> {
+        self.expect(TokenKind::LeftBrace, "expect block")?;
+
+        let mut stmts = Vec::new();
+        while self.peek()?.kind != TokenKind::RightBrace {
+            stmts.push(self.parse_stmt()?);
+        }
+
+        self.expect(TokenKind::RightBrace, "unclosed block")?;
+        if self.peek()?.kind == TokenKind::Semicolon {
+            self.current += 1; // optional trailing ';'
+        }
+
+        Ok(ast::BlockStmt { stmts })
+    }
+
+    fn parse_type(&mut self) -> Result<ast::Type, Error> {
+        let mut typ = None;
+
+        match self.peek()?.kind {
+            TokenKind::Ident => {
+                let ident = self.peek()?.clone();
+                self.current += 1;
+
+                if (self.current < self.tokens.len()) && self.peek()?.kind == TokenKind::Dot {
+                    self.current += 1;
+                    let segment = self
+                        .expect(TokenKind::Ident, "expect type name after module name")?
+                        .clone();
+
+                    typ = Some(ast::Type {
+                        span: ident.span.clone(),
+                        kind: ast::NamedType {
+                            source: Some(ident),
+                            name: segment,
+                        }
+                        .into(),
+                    });
+                } else {
+                    typ = Some(ast::Type {
+                        span: ident.span.clone(),
+                        kind: ast::NamedType {
+                            source: None,
+                            name: ident,
+                        }
+                        .into(),
+                    });
+                }
+            }
+            TokenKind::LeftParen => {
+                // Type grouping, does not get a seperate AST node but makes is
+                // easier to clarify what you mean. For example to make `*int | str`
+                // unambiguous you could explicitly write it as `(*int) | str` or
+                // `*(int | str)`
+                let grouping_start = self.peek()?.span.start;
+                self.current += 1;
+
+                let mut nested = self.parse_type()?;
+                self.expect(TokenKind::RightParen, "unclosed type grouping")?;
+
+                nested.span = grouping_start..nested.span.end;
+                typ = Some(nested);
+            }
+            _ => {}
+        }
+
+        if let Some(typ) = typ {
+            Ok(typ)
+        } else {
+            Err(self.error_at_current("expect type"))
+        }
+    }
+
+    fn parse_primary(&mut self) -> Result<ast::Expr, Error> {
+        let mut expr = None;
+
+        let token = self.peek()?.clone();
+
+        match &token.kind {
+            TokenKind::Int | TokenKind::Float | TokenKind::True | TokenKind::False => {
+                self.current += 1;
+                expr = Some(ast::Expr {
+                    span: token.span.clone(),
+                    kind: ast::Lit { token }.into(),
+                    typ: None,
+                })
+            }
+            TokenKind::LeftParen => {
+                return Err(self.error_at_current("grouping expressions are not yet implemented"))
+            }
+            TokenKind::Ident => {
+                self.current += 1;
+                if self.peek()?.kind == TokenKind::LeftBrace {
+                    self.current += 1;
+
+                    let mut inits = Vec::new();
+                    if self.peek()?.kind != TokenKind::RightBrace {
+                        loop {
+                            let init_ident = self
+                                .expect(TokenKind::Ident, "expect initializer name")?
+                                .clone();
+                            let init_expr = self.parse_expr()?;
+                            inits.push((init_ident, init_expr));
+
+                            if self.peek()?.kind != TokenKind::Comma {
+                                break;
+                            } else {
+                                self.current += 1;
+                            }
+                        }
+                    }
+
+                    let rbrace_token =
+                        self.expect(TokenKind::RightBrace, "unclosed struct literal")?;
+
+                    expr = Some(ast::Expr {
+                        span: token.span.start..rbrace_token.span.end,
+                        kind: ast::StructLit {
+                            typ: ast::Type {
+                                span: token.span.clone(),
+                                kind: ast::NamedType {
+                                    source: None,
+                                    name: token.clone(),
+                                }
+                                .into(),
+                            },
+                            inits,
+                        }
+                        .into(),
+                        typ: None,
+                    })
+                } else {
+                    expr = Some(ast::Expr {
+                        span: token.span.clone(),
+                        kind: ast::VarExpr {
+                            ident: token.clone(),
+                        }
+                        .into(),
+                        typ: None,
+                    })
+                }
+            }
+            _ if token.kind.is_prefix_op() => {
+                self.current += 1;
+                let target = self.parse_primary()?;
+                expr = Some(ast::Expr {
+                    span: token.span.clone(),
+                    kind: ast::UnaryExpr {
+                        op: token.clone(),
+                        expr: Box::new(target),
+                    }
+                    .into(),
+                    typ: None,
+                });
+            }
+            _ => {}
+        }
+
+        let mut expr = if let Some(expr) = expr {
+            expr
+        } else {
+            return Err(self.error_at_current("expected expression"));
         };
 
-        while self.cursor < self.tokens.len() && self.peek().typ.is_binary_op() {
-            let op = self.peek().clone();
-            self.cursor += 1;
+        while self.peek()?.kind == TokenKind::LeftParen || self.peek()?.kind == TokenKind::Dot {
+            match self.peek()?.kind {
+                TokenKind::LeftParen => {
+                    self.current += 1;
 
-            let right = self.parse_expression()?;
-            expr = ast::Expression {
-                variant: ast::ExpressionEnum::Binary {
-                    left: Box::new(expr),
-                    right: Box::new(right),
-                    op,
-                },
-                typ: None,
+                    let mut args = Vec::new();
+                    if self.peek()?.kind != TokenKind::RightParen {
+                        loop {
+                            args.push(self.parse_expr()?);
+
+                            if self.peek()?.kind != TokenKind::Comma {
+                                break;
+                            } else {
+                                self.current += 1;
+                            }
+                        }
+                    }
+
+                    let rparen_token = self.expect(
+                        TokenKind::RightParen,
+                        "missing closing ')' in call expression",
+                    )?;
+
+                    expr = ast::Expr {
+                        span: expr.span.start..rparen_token.span.end,
+                        kind: ast::CallExpr {
+                            callee: Box::new(expr),
+                            args,
+                        }
+                        .into(),
+                        typ: None,
+                    };
+                }
+                _ => {}
             }
         }
 
         Ok(expr)
     }
 
-    pub fn parse(&mut self) -> Result<Vec<ast::Expression>, Error> {
-        let mut expressions = Vec::new();
-        while self.cursor < self.tokens.len() {
-            let expr = self.parse_expression()?;
-            self.expect(
-                lexer::TokenType::Semicolon,
-                "expected semicolon after top-level expression",
-            )?;
-            expressions.push(expr);
+    fn parse_prec_expr(&mut self, mut lhs: ast::Expr, min_prec: u8) -> Result<ast::Expr, Error> {
+        let mut lookahead = self.peek()?.clone();
+
+        while lookahead.kind.is_binary_op() && lookahead.kind.op_info().prec >= min_prec {
+            let op = lookahead;
+            self.current += 1;
+            let mut rhs = self.parse_primary()?;
+            lookahead = self.peek()?.clone();
+
+            while lookahead.kind.is_binary_op()
+                && ((lookahead.kind.op_info().assoc == Assoc::Ltr
+                    && lookahead.kind.op_info().prec > op.kind.op_info().prec)
+                    || (lookahead.kind.op_info().assoc == Assoc::Rtl
+                        && lookahead.kind.op_info().prec == op.kind.op_info().prec))
+            {
+                rhs = self.parse_prec_expr(rhs, min_prec + 1)?;
+                lookahead = self.peek()?.clone();
+            }
+
+            lhs = ast::Expr {
+                span: lhs.span.start..rhs.span.end,
+                kind: ast::BinaryExpr {
+                    op,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                }
+                .into(),
+                typ: None,
+            };
         }
-        Ok(expressions)
+
+        Ok(lhs)
+    }
+
+    fn parse_expr(&mut self) -> Result<ast::Expr, Error> {
+        let primary = self.parse_primary()?;
+        self.parse_prec_expr(primary, 0)
+    }
+
+    fn parse_stmt(&mut self) -> Result<ast::Stmt, Error> {
+        let token = self.peek()?.clone();
+
+        match &token.kind {
+            TokenKind::Fun => {
+                self.current += 1;
+
+                let ident = self
+                    .expect(TokenKind::Ident, "expect function name")?
+                    .clone();
+
+                let mut parameters = Vec::new();
+                self.expect(TokenKind::LeftParen, "expect '(' after function name")?;
+
+                if self.peek()?.kind != TokenKind::RightParen {
+                    loop {
+                        let param_ident = self
+                            .expect(TokenKind::Ident, "expect parameter name")?
+                            .clone();
+                        let param_type = self.parse_type()?;
+                        parameters.push((param_ident, param_type));
+
+                        if self.peek()?.kind != TokenKind::Comma {
+                            break;
+                        } else {
+                            self.current += 1;
+                        }
+                    }
+                }
+
+                self.expect(TokenKind::RightParen, "missing closing ')'")?;
+
+                let return_type = match self.peek()?.kind {
+                    TokenKind::LeftBrace | TokenKind::Semicolon => None,
+                    _ => Some(self.parse_type()?),
+                };
+
+                let block = if self.peek()?.kind == TokenKind::LeftBrace {
+                    self.parse_block()?
+                } else {
+                    return Err(self.peek()?.error_at("expect function body"));
+                };
+
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::Fun(ast::FunDecl {
+                        ident,
+                        parameters,
+                        return_type,
+                        block,
+                    }),
+                    pointer: token.span,
+                })
+            }
+            TokenKind::Struct => {
+                self.current += 1;
+
+                let ident = self.expect(TokenKind::Ident, "expect struct name")?.clone();
+                self.expect(TokenKind::LeftBrace, "expect struct body")?;
+
+                if self.peek()?.kind == TokenKind::RightBrace {
+                    return Err(self.error_at_current("empty struct is illegal"));
+                }
+
+                let mut members = Vec::new();
+                while self.peek()?.kind != TokenKind::RightBrace {
+                    let member_ident = self
+                        .expect(TokenKind::Ident, "expect struct member name")?
+                        .clone();
+                    let member_type = self.parse_type()?;
+                    self.expect(TokenKind::Semicolon, "expect ';' after struct member type")?;
+                    members.push((member_ident, member_type));
+                }
+
+                self.expect(TokenKind::RightBrace, "unclosed struct body")?;
+
+                if self.peek()?.kind == TokenKind::Semicolon {
+                    self.current += 1; // optional trailing ';'
+                }
+
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::Struct(ast::StructDecl { ident, members }),
+                    pointer: token.span.clone(),
+                })
+            }
+            TokenKind::Var => {
+                self.current += 1;
+
+                let ident = self
+                    .expect(TokenKind::Ident, "expect variable name")?
+                    .clone();
+
+                let typ = if self.peek()?.kind != TokenKind::Equal {
+                    Some(self.parse_type()?)
+                } else {
+                    None
+                };
+
+                self.expect(TokenKind::Equal, "expect initial value for variable")?;
+                let init = self.parse_expr()?;
+
+                self.expect(
+                    TokenKind::Semicolon,
+                    "expect ';' after variable declaration",
+                )?;
+
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::Var(ast::VarStmt { ident, typ, init }),
+                    pointer: token.span.clone(),
+                })
+            }
+            TokenKind::If => {
+                self.current += 1;
+
+                let condition = self.parse_expr()?;
+                let if_block = self.parse_block()?;
+                let mut elif_stmts = Vec::new();
+                let mut else_block = None;
+
+                while self.peek()?.kind == TokenKind::Else {
+                    self.current += 1;
+                    if self.peek()?.kind == TokenKind::If {
+                        if else_block.is_some() {
+                            return Err(self.error_at_current("else if after final else block"));
+                        }
+
+                        self.current += 1;
+                        let elif_cond = self.parse_expr()?;
+                        let elif_block = self.parse_block()?;
+                        elif_stmts.push((elif_cond, elif_block));
+                    } else {
+                        else_block = Some(self.parse_block()?);
+                    }
+                }
+
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::If(ast::IfStmt {
+                        condition,
+                        if_block,
+                        elif_stmts,
+                        else_block,
+                    }),
+                    pointer: token.span.clone(),
+                })
+            }
+            TokenKind::While => {
+                self.current += 1;
+
+                let condition = self.parse_expr()?;
+                let block = self.parse_block()?;
+
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::While(ast::WhileStmt { condition, block }),
+                    pointer: token.span.clone(),
+                })
+            }
+            TokenKind::Return => {
+                self.current += 1;
+
+                let value = if self.peek()?.kind != TokenKind::Semicolon {
+                    Some(self.parse_expr()?)
+                } else {
+                    None
+                };
+
+                self.expect(TokenKind::Semicolon, "expect ';' after return statement")?;
+
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::Return(ast::ReturnStmt { value }),
+                    pointer: token.span.clone(),
+                })
+            }
+            TokenKind::LeftBrace => {
+                self.current += 1;
+                Ok(ast::Stmt {
+                    kind: ast::StmtKind::Block(self.parse_block()?),
+                    pointer: token.span.clone(),
+                })
+            }
+            _ => {
+                let expr = self.parse_expr()?;
+                self.expect(
+                    TokenKind::Semicolon,
+                    "expect ';' after top-level expression",
+                )?;
+
+                Ok(ast::Stmt {
+                    pointer: expr.span.clone(),
+                    kind: ast::StmtKind::Expr(ast::ExprStmt { expr }),
+                })
+            }
+        }
     }
 }
 
-pub fn parse(tokens: &[lexer::Token]) -> Result<Vec<ast::Expression>, Error> {
-    let mut parser = Parser::new(tokens);
-    parser.parse()
+pub fn parse(tokens: &[Token]) -> Result<Vec<ast::Stmt>, Error> {
+    let mut stmts = Vec::new();
+
+    if !tokens.is_empty() {
+        let mut parser = Parser::new(tokens);
+        while parser.peek()?.kind != TokenKind::Eof {
+            stmts.push(parser.parse_stmt()?);
+        }
+    }
+
+    Ok(stmts)
 }
