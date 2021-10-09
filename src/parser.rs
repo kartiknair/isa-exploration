@@ -128,14 +128,6 @@ impl<'a> Parser<'a> {
         }
     }
 
-    fn lookback(&self) -> &Token {
-        if self.current == 0 {
-            panic!("internal-error: parser called lookback on 0-value cursor.")
-        }
-
-        &self.tokens[self.current]
-    }
-
     fn expect(&mut self, kind: TokenKind, message: &str) -> Result<&Token, Error> {
         if let Some(token) = self.tokens.get(self.current) {
             if token.kind == kind {
@@ -179,30 +171,10 @@ impl<'a> Parser<'a> {
                 let ident = self.peek()?.clone();
                 self.current += 1;
 
-                if (self.current < self.tokens.len()) && self.peek()?.kind == TokenKind::Dot {
-                    self.current += 1;
-                    let segment = self
-                        .expect(TokenKind::Ident, "expect type name after module name")?
-                        .clone();
-
-                    typ = Some(ast::Type {
-                        span: ident.span.clone(),
-                        kind: ast::NamedType {
-                            source: Some(ident),
-                            name: segment,
-                        }
-                        .into(),
-                    });
-                } else {
-                    typ = Some(ast::Type {
-                        span: ident.span.clone(),
-                        kind: ast::NamedType {
-                            source: None,
-                            name: ident,
-                        }
-                        .into(),
-                    });
-                }
+                typ = Some(ast::Type {
+                    span: ident.span.clone(),
+                    kind: ast::NamedType { name: ident }.into(),
+                });
             }
             TokenKind::LeftParen => {
                 // Type grouping, does not get a seperate AST node but makes is
@@ -251,19 +223,18 @@ impl<'a> Parser<'a> {
                     self.current += 1;
 
                     let mut inits = Vec::new();
-                    if self.peek()?.kind != TokenKind::RightBrace {
-                        loop {
-                            let init_ident = self
-                                .expect(TokenKind::Ident, "expect initializer name")?
-                                .clone();
-                            let init_expr = self.parse_expr()?;
-                            inits.push((init_ident, init_expr));
+                    while self.peek()?.kind != TokenKind::RightBrace {
+                        let init_ident = self
+                            .expect(TokenKind::Ident, "expect initializer name")?
+                            .clone();
+                        self.expect(TokenKind::Colon, "expect ':' after initializer name")?;
+                        let init_expr = self.parse_expr()?;
+                        inits.push((init_ident, init_expr));
 
-                            if self.peek()?.kind != TokenKind::Comma {
-                                break;
-                            } else {
-                                self.current += 1;
-                            }
+                        if self.peek()?.kind != TokenKind::Comma {
+                            break;
+                        } else {
+                            self.current += 1;
                         }
                     }
 
@@ -276,7 +247,6 @@ impl<'a> Parser<'a> {
                             typ: ast::Type {
                                 span: token.span.clone(),
                                 kind: ast::NamedType {
-                                    source: None,
                                     name: token.clone(),
                                 }
                                 .into(),
@@ -319,40 +289,37 @@ impl<'a> Parser<'a> {
             return Err(self.error_at_current("expected expression"));
         };
 
-        while self.peek()?.kind == TokenKind::LeftParen || self.peek()?.kind == TokenKind::Dot {
-            match self.peek()?.kind {
-                TokenKind::LeftParen => {
-                    self.current += 1;
+        while self.peek()?.kind == TokenKind::LeftParen {
+            if let TokenKind::LeftParen = &self.peek()?.kind {
+                self.current += 1;
 
-                    let mut args = Vec::new();
-                    if self.peek()?.kind != TokenKind::RightParen {
-                        loop {
-                            args.push(self.parse_expr()?);
+                let mut args = Vec::new();
+                if self.peek()?.kind != TokenKind::RightParen {
+                    loop {
+                        args.push(self.parse_expr()?);
 
-                            if self.peek()?.kind != TokenKind::Comma {
-                                break;
-                            } else {
-                                self.current += 1;
-                            }
+                        if self.peek()?.kind != TokenKind::Comma {
+                            break;
+                        } else {
+                            self.current += 1;
                         }
                     }
-
-                    let rparen_token = self.expect(
-                        TokenKind::RightParen,
-                        "missing closing ')' in call expression",
-                    )?;
-
-                    expr = ast::Expr {
-                        span: expr.span.start..rparen_token.span.end,
-                        kind: ast::CallExpr {
-                            callee: Box::new(expr),
-                            args,
-                        }
-                        .into(),
-                        typ: None,
-                    };
                 }
-                _ => {}
+
+                let rparen_token = self.expect(
+                    TokenKind::RightParen,
+                    "missing closing ')' in call expression",
+                )?;
+
+                expr = ast::Expr {
+                    span: expr.span.start..rparen_token.span.end,
+                    kind: ast::CallExpr {
+                        callee: Box::new(expr),
+                        args,
+                    }
+                    .into(),
+                    typ: None,
+                };
             }
         }
 

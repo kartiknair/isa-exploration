@@ -1,9 +1,4 @@
 fun main() {
     var n1 = 45
-    var n2 = 56
-    var n3 = 36
-    var n4 = n1 + n2 * n3
-    
-    var b1 = n2 < n3
-    var b2 = !b1
+    print_i32(n1)
 }

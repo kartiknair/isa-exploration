@@ -1,0 +1,11 @@
+fun sum(x i32, y i32) i32 {
+    var s = x + y
+    return s
+}
+
+fun main() {
+    var s1 = sum(24, 41)
+    var s2 = sum(12, 18)
+    print_i32(s1)
+    print_i32(s2)
+}

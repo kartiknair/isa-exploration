@@ -13,7 +13,7 @@ struct Analyzer<'a> {
 
 impl<'a> Analyzer<'a> {
     fn new(file: &'a mut ast::File) -> Self {
-        let mut typespace = HashMap::new();
+        let mut typespace = HashMap::<String, ast::TypeKind>::new();
 
         typespace.insert("i8".into(), ast::PrimType::Int(8).into());
         typespace.insert("i16".into(), ast::PrimType::Int(16).into());
@@ -30,9 +30,30 @@ impl<'a> Analyzer<'a> {
 
         typespace.insert("bool".into(), ast::PrimType::Bool.into());
 
+        let mut namespace = HashMap::<String, ast::Type>::new();
+
+        // For debugging purposes
+        for (type_name, built_in_type) in &typespace {
+            namespace.insert(
+                format!("print_{}", &type_name),
+                ast::Type {
+                    span: 0..0,
+                    kind: ast::FunType {
+                        name: format!("print_{}", &type_name),
+                        parameters: vec![ast::Type {
+                            span: 0..0,
+                            kind: built_in_type.clone(),
+                        }],
+                        returns: None,
+                    }
+                    .into(),
+                },
+            );
+        }
+
         Self {
             file,
-            namespace: HashMap::new(),
+            namespace,
             typespace,
 
             within_function: None,
@@ -115,6 +136,7 @@ impl<'a> Analyzer<'a> {
                     ast::Type {
                         span: 0..0,
                         kind: ast::TypeKind::Fun(ast::FunType {
+                            name: self.file.lexeme(&fun_decl.ident.span).to_string(),
                             parameters: fun_decl
                                 .parameters
                                 .iter()
@@ -353,70 +375,116 @@ impl<'a> Analyzer<'a> {
                 }
             }
             ast::ExprKind::Binary(binary_expr) => {
-                self.analyze_expr(&mut binary_expr.left)?;
-                self.analyze_expr(&mut binary_expr.right)?;
+                if let token::TokenKind::Dot = &binary_expr.op.kind {
+                    self.analyze_expr(&mut binary_expr.left)?;
+                    if let ast::ExprKind::Var(var_expr) = &binary_expr.right.kind {
+                        let member_name = self.file.lexeme(&var_expr.ident.span);
+                        if let Some(target_type) = &binary_expr.left.typ {
+                            if let ast::TypeKind::Struct(struct_type) = &target_type.kind {
+                                let found_member = struct_type
+                                    .members
+                                    .iter()
+                                    .find(|(type_member_name, _)| type_member_name == member_name);
 
-                if let Some(left_expr_type) = &binary_expr.left.typ {
-                    if let Some(right_expr_type) = &binary_expr.right.typ {
-                        if !self.type_eq(right_expr_type, left_expr_type) {
+                                if let Some(found_member) = found_member {
+                                    expr.typ = Some(found_member.1.clone());
+                                } else {
+                                    return Err(Error {
+                                        message: format!(
+                                            "field '{}' does not exist on struct type: '{}'",
+                                            member_name, struct_type.name
+                                        ),
+                                        span: binary_expr.left.span.clone(),
+                                    });
+                                }
+                            } else {
+                                return Err(Error {
+                                    message:
+                                        "operator '.' must have struct type expression on left"
+                                            .to_string(),
+                                    span: binary_expr.left.span.clone(),
+                                });
+                            }
+                        } else {
                             return Err(Error {
+                                message: "operator '.' cannot have void expression on left"
+                                    .to_string(),
+                                span: binary_expr.left.span.clone(),
+                            });
+                        }
+                    } else {
+                        return Err(Error {
+                            message: "operator '.' can only have an identifier on it's right"
+                                .to_string(),
+                            span: binary_expr.right.span.clone(),
+                        });
+                    }
+                } else {
+                    self.analyze_expr(&mut binary_expr.left)?;
+                    self.analyze_expr(&mut binary_expr.right)?;
+
+                    if let Some(left_expr_type) = &binary_expr.left.typ {
+                        if let Some(right_expr_type) = &binary_expr.right.typ {
+                            if !self.type_eq(right_expr_type, left_expr_type) {
+                                return Err(Error {
                                 message: "binary expressions must have the same type expression on both sides".into(),
                                 span: expr.span.clone(),
                             });
-                        }
+                            }
 
-                        if let ast::TypeKind::Prim(prim_type) = &left_expr_type.kind {
-                            match &binary_expr.op.kind {
-                                token::TokenKind::Equal => {
-                                    expr.typ = Some(left_expr_type.clone());
-                                }
+                            if let ast::TypeKind::Prim(prim_type) = &left_expr_type.kind {
+                                match &binary_expr.op.kind {
+                                    token::TokenKind::Equal => {
+                                        expr.typ = Some(left_expr_type.clone());
+                                    }
 
-                                token::TokenKind::Plus
-                                | token::TokenKind::Minus
-                                | token::TokenKind::Star
-                                | token::TokenKind::Slash
-                                | token::TokenKind::Percent => {
-                                    if !prim_type.is_numeric() {
-                                        return Err(Error {
+                                    token::TokenKind::Plus
+                                    | token::TokenKind::Minus
+                                    | token::TokenKind::Star
+                                    | token::TokenKind::Slash
+                                    | token::TokenKind::Percent => {
+                                        if !prim_type.is_numeric() {
+                                            return Err(Error {
                                             message:
                                                 "binary expressions are only valid on primitive numeric operands"
                                                     .into(),
                                             span: expr.span.clone(),
                                         });
-                                    }
+                                        }
 
-                                    expr.typ = Some(left_expr_type.clone());
-                                }
-                                token::TokenKind::Lesser
-                                | token::TokenKind::Greater
-                                | token::TokenKind::LesserEqual
-                                | token::TokenKind::GreaterEqual
-                                | token::TokenKind::EqualEqual
-                                | token::TokenKind::BangEqual => {
-                                    expr.typ = Some(ast::Type {
-                                        span: 0..0,
-                                        kind: ast::TypeKind::Prim(ast::PrimType::Bool),
-                                    });
-                                }
-                                token::TokenKind::AndAnd | token::TokenKind::OrOr => {
-                                    if !matches!(prim_type, ast::PrimType::Bool) {
-                                        return Err(Error {
+                                        expr.typ = Some(left_expr_type.clone());
+                                    }
+                                    token::TokenKind::Lesser
+                                    | token::TokenKind::Greater
+                                    | token::TokenKind::LesserEqual
+                                    | token::TokenKind::GreaterEqual
+                                    | token::TokenKind::EqualEqual
+                                    | token::TokenKind::BangEqual => {
+                                        expr.typ = Some(ast::Type {
+                                            span: 0..0,
+                                            kind: ast::TypeKind::Prim(ast::PrimType::Bool),
+                                        });
+                                    }
+                                    token::TokenKind::AndAnd | token::TokenKind::OrOr => {
+                                        if !matches!(prim_type, ast::PrimType::Bool) {
+                                            return Err(Error {
                                             message:
                                                 "operator `&&` & `||` can only be used with boolean operands"
                                                     .into(),
                                             span: expr.span.clone(),
                                         });
+                                        }
                                     }
+                                    _ => unreachable!(),
                                 }
-                                _ => unreachable!(),
                             }
                         }
+                    } else {
+                        return Err(Error {
+                            message: "cannot use void expression in a binary expression".into(),
+                            span: expr.span.clone(),
+                        });
                     }
-                } else {
-                    return Err(Error {
-                        message: "cannot use void expression in a binary expression".into(),
-                        span: expr.span.clone(),
-                    });
                 }
             }
             ast::ExprKind::Var(var_expr) => {

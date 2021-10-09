@@ -25,12 +25,13 @@ pub enum TokenKind {
     RightBrace,
 
     Comma,
-    Dot,
     Colon,
     Bang,
 
     // binary operators
     Equal,
+    Dot,
+
     Plus,
     Minus,
     Star,

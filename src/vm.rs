@@ -20,7 +20,9 @@ struct Registers {
     r13: u64,
     r14: u64,
     r15: u64,
-    r16: u64,
+    rsp: u64,
+    rfp: u64,
+    rip: u64,
 }
 
 impl Registers {
@@ -42,7 +44,9 @@ impl Registers {
             r13: 0,
             r14: 0,
             r15: 0,
-            r16: 0,
+            rsp: 0,
+            rfp: 0,
+            rip: 0,
         }
     }
 
@@ -64,7 +68,9 @@ impl Registers {
             Register::R13 => self.r13,
             Register::R14 => self.r14,
             Register::R15 => self.r15,
-            Register::R16 => self.r16,
+            Register::Rsp => self.rsp,
+            Register::Rfp => self.rfp,
+            Register::Rip => self.rip,
         }
     }
 
@@ -86,7 +92,9 @@ impl Registers {
             Register::R13 => self.r13 = new_value,
             Register::R14 => self.r14 = new_value,
             Register::R15 => self.r15 = new_value,
-            Register::R16 => self.r16 = new_value,
+            Register::Rsp => self.rsp = new_value,
+            Register::Rfp => self.rfp = new_value,
+            Register::Rip => self.rip = new_value,
         }
     }
 }
@@ -95,15 +103,33 @@ impl Registers {
 pub struct VM<'a, const MEMORY_SIZE: usize> {
     registers: Registers,
     memory: [u8; MEMORY_SIZE],
-    block_table: HashMap<&'a str, &'a Block>,
+
+    insts: Vec<Inst>,
+    block_table: HashMap<&'a str, usize>,
 }
 
 impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
-    pub fn new() -> Self {
+    pub fn new(blocks: &'a [Block]) -> Self {
+        let mut block_table = HashMap::new();
+        let mut insts = Vec::new();
+
+        for block in blocks {
+            block_table.insert(
+                block.label.as_str(),
+                if insts.is_empty() { 0 } else { insts.len() },
+            );
+
+            for inst in &block.insts {
+                insts.push(inst.clone());
+            }
+        }
+
         Self {
             registers: Registers::new(),
             memory: [0; MEMORY_SIZE],
-            block_table: HashMap::new(),
+
+            insts,
+            block_table,
         }
     }
 
@@ -120,6 +146,9 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 );
             }
             Inst::PrintInt(reg) => {
+                println!("{}", self.registers.get(reg));
+            }
+            Inst::PrintUInt(reg) => {
                 println!("{}", self.registers.get(reg) as i64);
             }
             Inst::PrintFloat(reg) => {
@@ -173,21 +202,22 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 self.memory[usize::try_from(offset + 7)
                     .expect("This VM can only function on 64 bit machines.")] = bytes[7];
             }
+
             Inst::Jump(target_label) => {
-                if let Some(target_block) = self.block_table.get(target_label.0.as_str()) {
-                    for inst in &target_block.insts {
-                        self.interpret_inst(inst);
-                    }
+                if let Some(inst_offset) = self.block_table.get(target_label.0.as_str()) {
+                    self.registers.set(&Register::Rip, (*inst_offset) as u64);
+                    return; // return early to avoid the ip increment
                 } else {
                     panic!("undefined label ID in `jump`")
                 }
             }
             Inst::CJump(cond, target_label) => {
                 if self.registers.get(cond) == 1 {
-                    if let Some(target_block) = self.block_table.get(target_label.0.as_str()) {
-                        for inst in &target_block.insts {
-                            self.interpret_inst(inst);
-                        }
+                    if let Some(target_block_offset) = self.block_table.get(target_label.0.as_str())
+                    {
+                        self.registers
+                            .set(&Register::Rip, *target_block_offset as u64);
+                        return;
                     } else {
                         panic!("undefined target label ID in `cjump`")
                     }
@@ -195,17 +225,19 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
             }
             Inst::Branch(cond, true_label, false_label) => {
                 if self.registers.get(cond) == 1 {
-                    if let Some(target_block) = self.block_table.get(true_label.0.as_str()) {
-                        for inst in &target_block.insts {
-                            self.interpret_inst(inst);
-                        }
+                    if let Some(target_block_offset) = self.block_table.get(true_label.0.as_str()) {
+                        self.registers
+                            .set(&Register::Rip, *target_block_offset as u64);
+                        return;
                     } else {
                         panic!("undefined target label ID in `branch`")
                     }
-                } else if let Some(target_block) = self.block_table.get(false_label.0.as_str()) {
-                    for inst in &target_block.insts {
-                        self.interpret_inst(inst);
-                    }
+                } else if let Some(target_block_offset) =
+                    self.block_table.get(false_label.0.as_str())
+                {
+                    self.registers
+                        .set(&Register::Rip, *target_block_offset as u64);
+                    return;
                 } else {
                     panic!("undefined target label ID in `branch`")
                 }
@@ -225,10 +257,10 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 self.registers.set(dst, sum)
             }
             Inst::Sub(dst, lhs, rhs) => {
-                let lhs_value = self.registers.get(lhs);
-                let rhs_value = self.registers.get(rhs);
-                let sum = lhs_value - rhs_value;
-                self.registers.set(dst, sum)
+                let lhs_value = self.registers.get(lhs) as i64;
+                let rhs_value = self.registers.get(rhs) as i64;
+                let diff = lhs_value - rhs_value;
+                self.registers.set(dst, diff as u64)
             }
             Inst::SMul(dst, lhs, rhs) => {
                 let lhs_value = self.registers.get(lhs) as i64;
@@ -374,16 +406,30 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 self.registers.set(dst, (lhs_value > rhs_value) as u64)
             }
         }
+
+        let rip = self.registers.get(&Register::Rip);
+        if rip != u64::MAX {
+            self.registers.set(&Register::Rip, rip + 1);
+        }
     }
 
-    pub fn interpret(&mut self, blocks: &'a [Block]) {
-        for block in blocks {
-            self.block_table.insert(&block.label, block);
-        }
+    pub fn interpret(&mut self) {
+        if let Some(main_routine_begin) = self.block_table.get("main") {
+            let main_routine_begin = *main_routine_begin;
+            self.registers
+                .set(&Register::Rip, main_routine_begin as u64);
 
-        if let Some(main_block) = self.block_table.get("main") {
-            for inst in &main_block.insts {
-                self.interpret_inst(inst);
+            while self.registers.get(&Register::Rip) != u64::MAX {
+                let inst = if let Some(inst) = self
+                    .insts
+                    .get((self.registers.get(&Register::Rip)) as usize)
+                {
+                    inst.clone()
+                } else {
+                    unreachable!()
+                };
+
+                self.interpret_inst(&inst);
             }
         }
     }

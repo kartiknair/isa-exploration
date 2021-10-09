@@ -1,5 +1,5 @@
 #[allow(dead_code)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd)]
 pub enum Register {
     R0,
     R1,
@@ -17,10 +17,38 @@ pub enum Register {
     R13,
     R14,
     R15,
-    R16,
+
+    Rsp,
+    Rfp,
+    Rip,
 }
 
 impl Register {
+    pub fn from_id(id: u8) -> Self {
+        match id {
+            0 => Self::R0,
+            1 => Self::R1,
+            2 => Self::R2,
+            3 => Self::R3,
+            4 => Self::R4,
+            5 => Self::R5,
+            6 => Self::R6,
+            7 => Self::R7,
+            8 => Self::R8,
+            9 => Self::R9,
+            10 => Self::R10,
+            11 => Self::R11,
+            12 => Self::R12,
+            13 => Self::R13,
+            14 => Self::R14,
+            15 => Self::R15,
+            16 => Self::Rsp,
+            17 => Self::Rfp,
+            18 => Self::Rip,
+            _ => panic!("expected register ID between 0 and 18"),
+        }
+    }
+
     pub fn get_id(&self) -> u8 {
         match self {
             Self::R0 => 0,
@@ -39,7 +67,9 @@ impl Register {
             Self::R13 => 13,
             Self::R14 => 14,
             Self::R15 => 15,
-            Self::R16 => 16,
+            Self::Rsp => 16,
+            Self::Rfp => 17,
+            Self::Rip => 18,
         }
     }
 }
@@ -56,7 +86,7 @@ impl Label {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Copy)]
 pub enum Imm {
-    Int(i64),
+    Int(u64),
     Float(f64),
     True,
     False,
@@ -95,6 +125,7 @@ pub enum Inst {
     // Useful for debugging purposes prints the registers contents
     Dbg(Register),
     PrintInt(Register),
+    PrintUInt(Register),
     PrintFloat(Register),
 
     // Memory & registers
@@ -154,6 +185,7 @@ impl Inst {
         match self {
             Self::Dbg(reg) => format!("dbg %{}", reg.get_id()),
             Self::PrintInt(reg) => format!("print_int %{}", reg.get_id()),
+            Self::PrintUInt(reg) => format!("print_uint %{}", reg.get_id()),
             Self::PrintFloat(reg) => format!("print_float %{}", reg.get_id()),
 
             Self::Rega(dst, imm) => format!(

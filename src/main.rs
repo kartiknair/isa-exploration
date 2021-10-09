@@ -1,6 +1,6 @@
-use std::{borrow::Borrow, env, ops::Range, process::exit};
+use std::{env, process::exit};
 
-use ariadne::{Label, Report, ReportKind, Source, Span};
+use ariadne::{Label, Report, ReportKind, Source};
 use common::Error;
 
 mod analyzer;
@@ -56,29 +56,36 @@ filename = Path to the file that you would like to compile
             exit(1);
         }
     };
+    dbg!("read file");
 
     let tokens = match lexer::lex(&file.source) {
         Ok(tokens) => tokens,
         Err(err) => report_error_and_exit(&file, err),
     };
+    dbg!("lexed tokens");
 
     file.stmts = match parser::parse(&tokens) {
         Ok(stmts) => stmts,
         Err(err) => report_error_and_exit(&file, err),
     };
+    dbg!("parsed into ast");
 
     if let Err(err) = analyzer::analyze_mut(&mut file) {
         report_error_and_exit(&file, err)
     };
+    dbg!("analyzed");
 
     let blocks = codegen::gen(&file);
 
+    dbg!("generated asm");
     const MEMORY_SIZE: usize = 128_000; // 128 KiB
-    let mut machine = vm::VM::<MEMORY_SIZE>::new();
+    let mut machine = vm::VM::<MEMORY_SIZE>::new(&blocks);
     if cfg!(debug_assertions) {
         for block in &blocks {
             println!("{}", block.as_asm())
         }
     }
-    machine.interpret(&blocks);
+
+    dbg!("program output");
+    machine.interpret();
 }

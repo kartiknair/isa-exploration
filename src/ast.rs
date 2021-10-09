@@ -23,6 +23,7 @@ impl PrimType {
 
 #[derive(Debug, Clone)]
 pub struct FunType {
+    pub name: String,
     pub parameters: Vec<Type>,
     pub returns: Option<Box<Type>>,
 }
@@ -42,7 +43,6 @@ pub struct StructType {
 // only struct and primitive types, but once aliases are introduced)
 #[derive(Debug, Clone)]
 pub struct NamedType {
-    pub source: Option<token::Token>,
     pub name: token::Token,
 }
 
