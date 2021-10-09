@@ -7,11 +7,10 @@ mod analyzer;
 mod ast;
 mod codegen;
 mod common;
-mod inst;
 mod lexer;
 mod parser;
+mod risc;
 mod token;
-mod vm;
 
 fn report_error_and_exit(file: &ast::File, err: Error) -> ! {
     let filename = file
@@ -79,7 +78,7 @@ filename = Path to the file that you would like to compile
 
     dbg!("generated asm");
     const MEMORY_SIZE: usize = 128_000; // 128 KiB
-    let mut machine = vm::VM::<MEMORY_SIZE>::new(&blocks);
+    let mut machine = risc::vm::VM::<MEMORY_SIZE>::new(&blocks);
     if cfg!(debug_assertions) {
         for block in &blocks {
             println!("{}", block.as_asm())

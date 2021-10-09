@@ -2,7 +2,7 @@ use std::{borrow::Borrow, collections::HashMap, convert::TryInto};
 
 use crate::{
     ast,
-    inst::{self, Register},
+    risc::inst::{self, Register},
     token,
 };
 

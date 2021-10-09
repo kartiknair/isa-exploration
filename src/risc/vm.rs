@@ -1,6 +1,6 @@
 use std::{collections::HashMap, convert::TryFrom};
 
-use crate::inst::*;
+use super::inst::*;
 
 #[derive(Debug, Clone, Copy)]
 struct Registers {
