@@ -435,6 +435,12 @@ impl<'a> Analyzer<'a> {
                             if let ast::TypeKind::Prim(prim_type) = &left_expr_type.kind {
                                 match &binary_expr.op.kind {
                                     token::TokenKind::Equal => {
+                                        if !binary_expr.left.kind.is_lvalue() {
+                                            return Err(Error {
+                                                message: "left of assignment can only be variable or get expression".into(),
+                                                span: binary_expr.left.span.clone(),
+                                            });
+                                        }
                                         expr.typ = Some(left_expr_type.clone());
                                     }
 
@@ -594,6 +600,7 @@ impl<'a> Analyzer<'a> {
     }
 }
 
+#[allow(dead_code)]
 pub fn analyze(file: &ast::File) -> Result<ast::File, Error> {
     let mut new_file = file.clone();
     let mut analyzer = Analyzer::new(&mut new_file);

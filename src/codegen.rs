@@ -126,8 +126,8 @@ impl<'a> Generator<'a> {
                 self.current_stack_offset += 8;
                 self.blocks[last_idx] = block;
             }
-            ast::StmtKind::If(if_stmt) => todo!(),
-            ast::StmtKind::While(while_stmt) => todo!(),
+            ast::StmtKind::If(_if_stmt) => todo!(),
+            ast::StmtKind::While(_while_stmt) => todo!(),
             ast::StmtKind::Return(return_stmt) => {
                 if let Some(value) = &return_stmt.value {
                     let return_adr_reg = self.get_tmp_reg();
@@ -183,7 +183,7 @@ impl<'a> Generator<'a> {
 
                 self.make_reg_available(&expr_reg);
             }
-            ast::StmtKind::Block(block_stmt) => todo!(),
+            ast::StmtKind::Block(_block_stmt) => todo!(),
         }
     }
 
