@@ -269,6 +269,8 @@ impl<'a> Generator<'a> {
                 } else if binary_expr.op.kind == token::TokenKind::Dot {
                     let struct_pointer = match self.gen_expression(&(*binary_expr.left), block) {
                         Operand::Adr(ptr_reg) => ptr_reg,
+                        // We treat the daata register as an address as well (this makes codegen more lenient)
+                        Operand::Data(ptr_reg) => ptr_reg,
                         _ => {
                             panic!("struct value must be generated as pointer into the stack")
                         }
