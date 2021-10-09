@@ -3,12 +3,12 @@
 	"version": "0.1.0",
 	"main": "index.js",
 	"scripts": {
-		"build": "webpack --config webpack.config.js",
+		"build": "webpack --config ./webpack.config.js",
 		"start": "webpack-dev-server"
 	},
 	"license": "MIT",
 	"dependencies": {
-		"isas": "file:../pkg",
+		"isas": "file:./pkg",
 		"monaco-editor": "^0.29.0"
 	},
 	"devDependencies": {

@@ -1,4 +1,7 @@
 /pkg
 /target
-www/node_modules
-www/dist
+
+/www/pkg
+/www/node_modules
+/www/public
+/www/.vercel
