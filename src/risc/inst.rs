@@ -101,6 +101,15 @@ impl Imm {
             Self::False => 0,
         }
     }
+
+    pub fn as_asm(&self) -> String {
+        match self {
+            Self::Int(i) => i.to_string(),
+            Self::Float(f) => f.to_string(),
+            Self::True => "true".to_string(),
+            Self::False => "false".to_string(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -139,7 +148,7 @@ pub enum Inst {
     CJump(Register, Label),
     Branch(Register, Label, Label),
 
-    // Binary operations
+    // Bitwise operations
     Shl(Register, Register, Register),
     Shr(Register, Register, Register),
     And(Register, Register, Register),
@@ -188,16 +197,7 @@ impl Inst {
             Self::PrintUInt(reg) => format!("print_uint %{}", reg.get_id()),
             Self::PrintFloat(reg) => format!("print_float %{}", reg.get_id()),
 
-            Self::Rega(dst, imm) => format!(
-                "rega %{} {}",
-                dst.get_id(),
-                match imm {
-                    Imm::Int(i) => i.to_string(),
-                    Imm::Float(f) => f.to_string(),
-                    Imm::True => "true".to_string(),
-                    Imm::False => "false".to_string(),
-                }
-            ),
+            Self::Rega(dst, imm) => format!("rega %{} {}", dst.get_id(), imm.as_asm()),
             Self::Copy(dst, src) => format!("copy %{} %{}", dst.get_id(), src.get_id()),
             Self::Load(dst, adr) => format!("load %{} %{}", dst.get_id(), adr.get_id()),
             Self::Store(adr, src) => format!("store %{} %{}", adr.get_id(), src.get_id()),

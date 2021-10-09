@@ -5,6 +5,7 @@ use common::Error;
 
 mod analyzer;
 mod ast;
+mod cisc;
 mod codegen;
 mod common;
 mod lexer;
@@ -74,17 +75,27 @@ filename = Path to the file that you would like to compile
     };
     dbg!("analyzed");
 
-    let blocks = codegen::gen(&file);
-
-    dbg!("generated asm");
     const MEMORY_SIZE: usize = 128_000; // 128 KiB
-    let mut machine = risc::vm::VM::<MEMORY_SIZE>::new(&blocks);
+
+    let risc_blocks = codegen::risc::gen(&file);
+    dbg!("generated RISC asm");
+    let mut risc_machine = risc::vm::VM::<MEMORY_SIZE>::new(&risc_blocks);
     if cfg!(debug_assertions) {
-        for block in &blocks {
+        for block in &risc_blocks {
             println!("{}", block.as_asm())
         }
     }
+    dbg!("RISC program output");
+    risc_machine.interpret();
 
-    dbg!("program output");
-    machine.interpret();
+    let cisc_blocks = codegen::cisc::gen(&file);
+    dbg!("generated CISC asm");
+    let mut cisc_machine = cisc::vm::VM::<MEMORY_SIZE>::new(&cisc_blocks);
+    if cfg!(debug_assertions) {
+        for block in &cisc_blocks {
+            println!("{}", block.as_asm())
+        }
+    }
+    dbg!("CISC program output");
+    cisc_machine.interpret();
 }
