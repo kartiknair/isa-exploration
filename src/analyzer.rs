@@ -8,7 +8,7 @@ struct Analyzer<'a> {
     namespace: HashMap<String, ast::Type>,
     typespace: HashMap<String, ast::TypeKind>,
 
-    within_function: Option<ast::FunDecl>,
+    within_function: Option<ast::FnDecl>,
 }
 
 impl<'a> Analyzer<'a> {
@@ -38,7 +38,7 @@ impl<'a> Analyzer<'a> {
                 format!("print_{}", &type_name),
                 ast::Type {
                     span: 0..0,
-                    kind: ast::FunType {
+                    kind: ast::FnType {
                         name: format!("print_{}", &type_name),
                         parameters: vec![ast::Type {
                             span: 0..0,
@@ -104,21 +104,21 @@ impl<'a> Analyzer<'a> {
 
     fn analyze_stmt(&mut self, stmt: &mut ast::Stmt) -> Result<(), Error> {
         match &mut stmt.kind {
-            ast::StmtKind::Fun(fun_decl) => {
+            ast::StmtKind::Fn(fn_decl) => {
                 if self.within_function.is_some() {
-                    return Err(fun_decl
+                    return Err(fn_decl
                         .ident
                         .error_at("nested functions have not yet been implemented"));
                 }
 
-                let function_name = self.file.lexeme(&fun_decl.ident.span);
-                self.within_function = Some(fun_decl.clone());
+                let function_name = self.file.lexeme(&fn_decl.ident.span);
+                self.within_function = Some(fn_decl.clone());
 
-                if let Some(return_type) = &mut fun_decl.return_type {
+                if let Some(return_type) = &mut fn_decl.return_type {
                     self.analyze_type(return_type)?;
                 }
 
-                for param in fun_decl.parameters.iter_mut() {
+                for param in fn_decl.parameters.iter_mut() {
                     self.analyze_type(&mut param.1)?;
 
                     if self.file.lexeme(&param.0.span) == function_name {
@@ -135,14 +135,14 @@ impl<'a> Analyzer<'a> {
                     function_name.into(),
                     ast::Type {
                         span: 0..0,
-                        kind: ast::TypeKind::Fun(ast::FunType {
-                            name: self.file.lexeme(&fun_decl.ident.span).to_string(),
-                            parameters: fun_decl
+                        kind: ast::TypeKind::Fn(ast::FnType {
+                            name: self.file.lexeme(&fn_decl.ident.span).to_string(),
+                            parameters: fn_decl
                                 .parameters
                                 .iter()
                                 .map(|(_, typ)| typ.clone())
                                 .collect(),
-                            returns: fun_decl
+                            returns: fn_decl
                                 .return_type
                                 .as_ref()
                                 .map(|return_type| Box::new(return_type.clone())),
@@ -150,9 +150,9 @@ impl<'a> Analyzer<'a> {
                     },
                 );
 
-                self.within_function = Some(fun_decl.clone());
+                self.within_function = Some(fn_decl.clone());
 
-                for stmt in fun_decl.block.stmts.iter_mut() {
+                for stmt in fn_decl.block.stmts.iter_mut() {
                     self.analyze_stmt(stmt)?;
                 }
 
@@ -177,35 +177,35 @@ impl<'a> Analyzer<'a> {
                     .insert(struct_name, ast::TypeKind::Struct(struct_type));
             }
 
-            ast::StmtKind::Var(var_stmt) => {
-                if let Some(typ) = &mut var_stmt.typ {
-                    self.analyze_expr(&mut var_stmt.init)?;
+            ast::StmtKind::Let(let_stmt) => {
+                if let Some(typ) = &mut let_stmt.typ {
+                    self.analyze_expr(&mut let_stmt.init)?;
 
-                    // e.g. var x int = 32
-                    if let Some(init_type) = &var_stmt.init.typ {
+                    // e.g. let x int = 32
+                    if let Some(init_type) = &let_stmt.init.typ {
                         if !self.type_eq(init_type, typ) {
                             return Err(Error {
                                 message: "variable initializer is not assignable to provided type"
                                     .into(),
-                                span: var_stmt.init.span.clone(),
+                                span: let_stmt.init.span.clone(),
                             });
                         }
                     } else {
                         return Err(Error {
                             message: "cannot use void expression to declare variable".into(),
-                            span: var_stmt.init.span.clone(),
+                            span: let_stmt.init.span.clone(),
                         });
                     }
                 } else {
-                    // e.g. var x = 34
-                    self.analyze_expr(&mut var_stmt.init)?;
-                    var_stmt.typ = var_stmt.init.typ.clone();
+                    // e.g. let x = 34
+                    self.analyze_expr(&mut let_stmt.init)?;
+                    let_stmt.typ = let_stmt.init.typ.clone();
                 }
 
-                if let Some(var_type) = &var_stmt.typ {
+                if let Some(let_type) = &let_stmt.typ {
                     self.namespace.insert(
-                        self.file.lexeme(&var_stmt.ident.span).to_string(),
-                        var_type.clone(),
+                        self.file.lexeme(&let_stmt.ident.span).to_string(),
+                        let_type.clone(),
                     );
                 } else {
                     panic!("internal-error: could not get type for variable declaration")
@@ -278,9 +278,9 @@ impl<'a> Analyzer<'a> {
                     self.analyze_expr(value)?;
                 }
 
-                if let Some(current_func) = &self.within_function {
+                if let Some(current_fnc) = &self.within_function {
                     if let Some(value) = &mut return_stmt.value {
-                        if let Some(return_type) = &current_func.return_type {
+                        if let Some(return_type) = &current_fnc.return_type {
                             if let Some(value_type) = &value.typ {
                                 if !self.type_eq(value_type, return_type) {
                                     return Err(Error {
@@ -301,7 +301,7 @@ impl<'a> Analyzer<'a> {
                                 span: value.span.clone(),
                             });
                         }
-                    } else if current_func.return_type.is_some() {
+                    } else if current_fnc.return_type.is_some() {
                         return Err(Error {
                             message: "void return in function with return type".into(),
                             span: stmt.pointer.clone(),
@@ -377,8 +377,8 @@ impl<'a> Analyzer<'a> {
             ast::ExprKind::Binary(binary_expr) => {
                 if let token::TokenKind::Dot = &binary_expr.op.kind {
                     self.analyze_expr(&mut binary_expr.left)?;
-                    if let ast::ExprKind::Var(var_expr) = &binary_expr.right.kind {
-                        let member_name = self.file.lexeme(&var_expr.ident.span);
+                    if let ast::ExprKind::Let(let_expr) = &binary_expr.right.kind {
+                        let member_name = self.file.lexeme(&let_expr.ident.span);
                         if let Some(target_type) = &binary_expr.left.typ {
                             if let ast::TypeKind::Struct(struct_type) = &target_type.kind {
                                 let found_member = struct_type
@@ -493,10 +493,10 @@ impl<'a> Analyzer<'a> {
                     }
                 }
             }
-            ast::ExprKind::Var(var_expr) => {
-                let var_name = self.file.lexeme(&var_expr.ident.span);
-                if let Some(var_type) = self.namespace.get(var_name) {
-                    expr.typ = Some(var_type.clone());
+            ast::ExprKind::Let(let_expr) => {
+                let let_name = self.file.lexeme(&let_expr.ident.span);
+                if let Some(let_type) = self.namespace.get(let_name) {
+                    expr.typ = Some(let_type.clone());
                 } else {
                     return Err(Error {
                         message: "undefined variable".into(),
@@ -511,11 +511,11 @@ impl<'a> Analyzer<'a> {
                 }
 
                 if let Some(callee_type) = &call_expr.callee.typ {
-                    if let ast::TypeKind::Fun(fun_type) = &callee_type.kind {
+                    if let ast::TypeKind::Fn(fn_type) = &callee_type.kind {
                         // Validate arguments
                         for (i, arg) in call_expr.args.iter().enumerate() {
                             if arg.typ.is_some() {
-                                let param_type = &fun_type.parameters[i];
+                                let param_type = &fn_type.parameters[i];
                                 if let Some(arg_type) = &arg.typ {
                                     if !self.type_eq(arg_type, param_type) {
                                         return Err(Error {
@@ -538,7 +538,7 @@ impl<'a> Analyzer<'a> {
                             }
                         }
 
-                        expr.typ = fun_type
+                        expr.typ = fn_type
                             .returns
                             .as_ref()
                             .map(|return_type| (**return_type).clone());

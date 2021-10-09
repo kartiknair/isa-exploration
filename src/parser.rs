@@ -259,7 +259,7 @@ impl<'a> Parser<'a> {
                 } else {
                     expr = Some(ast::Expr {
                         span: token.span.clone(),
-                        kind: ast::VarExpr {
+                        kind: ast::LetExpr {
                             ident: token.clone(),
                         }
                         .into(),
@@ -369,7 +369,7 @@ impl<'a> Parser<'a> {
         let token = self.peek()?.clone();
 
         match &token.kind {
-            TokenKind::Fun => {
+            TokenKind::Fn => {
                 self.current += 1;
 
                 let ident = self
@@ -409,7 +409,7 @@ impl<'a> Parser<'a> {
                 };
 
                 Ok(ast::Stmt {
-                    kind: ast::StmtKind::Fun(ast::FunDecl {
+                    kind: ast::StmtKind::Fn(ast::FnDecl {
                         ident,
                         parameters,
                         return_type,
@@ -449,7 +449,7 @@ impl<'a> Parser<'a> {
                     pointer: token.span.clone(),
                 })
             }
-            TokenKind::Var => {
+            TokenKind::Let => {
                 self.current += 1;
 
                 let ident = self
@@ -471,7 +471,7 @@ impl<'a> Parser<'a> {
                 )?;
 
                 Ok(ast::Stmt {
-                    kind: ast::StmtKind::Var(ast::VarStmt { ident, typ, init }),
+                    kind: ast::StmtKind::Let(ast::LetStmt { ident, typ, init }),
                     pointer: token.span.clone(),
                 })
             }

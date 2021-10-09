@@ -3,7 +3,7 @@ struct Point {
     y f64
 }
 
-fun main() {
-    var p1 = Point{x: 23.45, y: 67.89}
+fn main() {
+    let p1 = Point{x: 23.45, y: 67.89}
     print_f64(p1.y)
 }

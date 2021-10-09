@@ -38,32 +38,32 @@ impl<'a> Generator<'a> {
 
     fn gen_stmt(&mut self, stmt: &ast::Stmt) {
         match &stmt.kind {
-            ast::StmtKind::Fun(fun_decl) => {
-                let label = self.file.lexeme(&fun_decl.ident.span).to_string();
-                let mut fun_init_block = inst::Block {
+            ast::StmtKind::Fn(fn_decl) => {
+                let label = self.file.lexeme(&fn_decl.ident.span).to_string();
+                let mut fn_init_block = inst::Block {
                     label,
                     insts: Vec::new(),
                 };
 
-                let pre_fun_stack_adr = self.current_stack_offset;
-                if fun_decl.parameters.len() > 8 {
+                let pre_fn_stack_adr = self.current_stack_offset;
+                if fn_decl.parameters.len() > 8 {
                     panic!("can only generate assembly for functions with less than 8 parameters")
                 }
 
-                for (i, (param_ident, _)) in fun_decl.parameters.iter().enumerate() {
+                for (i, (param_ident, _)) in fn_decl.parameters.iter().enumerate() {
                     let param_reg = Register::from_id((i + 1).try_into().unwrap());
 
                     let param_adr_reg = self.get_tmp_reg();
-                    fun_init_block.insts.push(inst::Inst::Rega(
+                    fn_init_block.insts.push(inst::Inst::Rega(
                         param_adr_reg,
                         inst::Imm::Int(self.current_stack_offset),
                     ));
-                    fun_init_block.insts.push(inst::Inst::UAdd(
+                    fn_init_block.insts.push(inst::Inst::UAdd(
                         param_adr_reg,
                         Register::Rfp,
                         param_adr_reg,
                     ));
-                    fun_init_block
+                    fn_init_block
                         .insts
                         .push(inst::Inst::Store(param_adr_reg, param_reg));
                     self.make_reg_available(&param_adr_reg);
@@ -75,37 +75,37 @@ impl<'a> Generator<'a> {
                     self.current_stack_offset += 8;
                 }
 
-                self.blocks.push(fun_init_block);
+                self.blocks.push(fn_init_block);
 
-                for stmt in &fun_decl.block.stmts {
+                for stmt in &fn_decl.block.stmts {
                     self.gen_stmt(stmt);
                 }
 
-                if self.file.lexeme(&fun_decl.ident.span) == "main" {
+                if self.file.lexeme(&fn_decl.ident.span) == "main" {
                     let final_block = self.blocks.last_mut().unwrap();
                     final_block
                         .insts
                         .push(inst::Inst::Rega(Register::Rip, inst::Imm::Int(u64::MAX)));
                 }
 
-                self.current_stack_offset = pre_fun_stack_adr;
+                self.current_stack_offset = pre_fn_stack_adr;
             }
             ast::StmtKind::Struct(_) => {
                 // Nothing to do
             }
 
-            ast::StmtKind::Var(var_stmt) => {
+            ast::StmtKind::Let(let_stmt) => {
                 let mut block = if let Some(block) = self.blocks.last() {
                     block.clone()
                 } else {
                     unreachable!()
                 };
 
-                let initializer_reg = self.gen_expression(&var_stmt.init, &mut block);
+                let initializer_reg = self.gen_expression(&let_stmt.init, &mut block);
                 let last_idx = self.blocks.len() - 1;
 
                 self.namespace.insert(
-                    self.file.lexeme(&var_stmt.ident.span).to_string(),
+                    self.file.lexeme(&let_stmt.ident.span).to_string(),
                     self.current_stack_offset,
                 );
 
@@ -232,10 +232,10 @@ impl<'a> Generator<'a> {
             ast::ExprKind::Binary(binary_expr) => {
                 if binary_expr.op.kind == token::TokenKind::Equal {
                     let right_reg = self.gen_expression(&(*binary_expr.right), block);
-                    if let ast::ExprKind::Var(var_expr) = &binary_expr.left.kind {
+                    if let ast::ExprKind::Let(let_expr) = &binary_expr.left.kind {
                         let resolved_stack_offset = *self
                             .namespace
-                            .get(self.file.lexeme(&var_expr.ident.span))
+                            .get(self.file.lexeme(&let_expr.ident.span))
                             .unwrap();
 
                         let adr_reg = self.get_tmp_reg();
@@ -256,8 +256,8 @@ impl<'a> Generator<'a> {
                 } else if binary_expr.op.kind == token::TokenKind::Dot {
                     let struct_pointer = self.gen_expression(&(*binary_expr.left), block);
                     let member_name =
-                        if let ast::ExprKind::Var(var_expr) = &(*binary_expr.right).kind {
-                            self.file.lexeme(&var_expr.ident.span)
+                        if let ast::ExprKind::Let(let_expr) = &(*binary_expr.right).kind {
+                            self.file.lexeme(&let_expr.ident.span)
                         } else {
                             unreachable!()
                         };
@@ -471,10 +471,10 @@ impl<'a> Generator<'a> {
                     }
                 }
             }
-            ast::ExprKind::Var(var_expr) => {
+            ast::ExprKind::Let(let_expr) => {
                 let resolved_stack_offset = *self
                     .namespace
-                    .get(self.file.lexeme(&var_expr.ident.span))
+                    .get(self.file.lexeme(&let_expr.ident.span))
                     .unwrap();
 
                 let adr_reg = self.get_tmp_reg();
@@ -493,7 +493,7 @@ impl<'a> Generator<'a> {
             }
             ast::ExprKind::Call(call_expr) => {
                 if let Some(callee_type) = &call_expr.callee.typ {
-                    if let ast::TypeKind::Fun(fun_type) = &callee_type.kind {
+                    if let ast::TypeKind::Fn(fn_type) = &callee_type.kind {
                         for (i, arg) in call_expr.args.iter().enumerate() {
                             let param_reg = Register::from_id((i + 1).try_into().unwrap());
                             let expr_reg = self.gen_expression(arg, block);
@@ -531,7 +531,7 @@ impl<'a> Generator<'a> {
                         ));
                         block
                             .insts
-                            .push(inst::Inst::Jump(inst::Label::new(&fun_type.name)));
+                            .push(inst::Inst::Jump(inst::Label::new(&fn_type.name)));
                         self.make_reg_available(&inst_offset_reg);
 
                         block
@@ -540,7 +540,7 @@ impl<'a> Generator<'a> {
 
                         Register::R0
                     } else {
-                        panic!("callee has non functiion type")
+                        panic!("callee has non fnctiion type")
                     }
                 } else {
                     panic!("callee is void type")

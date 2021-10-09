@@ -15,8 +15,8 @@ let commonSettings = {
 }
 
 let sourceEditor = editor.create(document.getElementById('source-editor'), {
-	value: 'fun main() {\n  var n = 45\n  print_i32(n)\n}\n',
-	language: 'plain',
+	value: 'fn main() {\n  let n = 45\n  print_i32(n)\n}\n',
+	language: 'rust',
 	...commonSettings,
 })
 

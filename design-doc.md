@@ -10,14 +10,14 @@
 The program in a higher-level C-like language would look like:
 
 ```
-fun add(x int, y int) {
+fn add(x int, y int) {
     return x + y
 }
 
-fun main() {
-    var n1 = 45
-    var n2 = 56
-    var n3 = add(n1, n2)
+fn main() {
+    let n1 = 45
+    let n2 = 56
+    let n3 = add(n1, n2)
     dbg(n3)
 }
 ```

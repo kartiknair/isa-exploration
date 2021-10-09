@@ -8,8 +8,8 @@ pub enum TokenKind {
     Eof,
 
     // keywords
-    Var,
-    Fun,
+    Let,
+    Fn,
     Return,
     Struct,
     True,
@@ -54,8 +54,8 @@ pub enum TokenKind {
 impl TokenKind {
     pub fn from_keyword_str(name: &str) -> Option<TokenKind> {
         match name {
-            "var" => Some(TokenKind::Var),
-            "fun" => Some(TokenKind::Fun),
+            "let" => Some(TokenKind::Let),
+            "fn" => Some(TokenKind::Fn),
             "return" => Some(TokenKind::Return),
             "struct" => Some(TokenKind::Struct),
             "true" => Some(TokenKind::True),

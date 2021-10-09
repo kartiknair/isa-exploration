@@ -22,7 +22,7 @@ impl PrimType {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunType {
+pub struct FnType {
     pub name: String,
     pub parameters: Vec<Type>,
     pub returns: Option<Box<Type>>,
@@ -50,7 +50,7 @@ pub struct NamedType {
 #[try_into(ref, ref_mut)]
 pub enum TypeKind {
     Prim(PrimType),
-    Fun(FunType),
+    Fn(FnType),
     Struct(StructType),
     Named(NamedType),
 }
@@ -62,7 +62,7 @@ pub struct Type {
 }
 
 #[derive(Debug, Clone)]
-pub struct FunDecl {
+pub struct FnDecl {
     pub ident: token::Token,
     pub parameters: Vec<(token::Token, Type)>,
     pub return_type: Option<Type>,
@@ -76,7 +76,7 @@ pub struct StructDecl {
 }
 
 #[derive(Debug, Clone)]
-pub struct VarStmt {
+pub struct LetStmt {
     pub ident: token::Token,
     pub typ: Option<Type>,
     pub init: Expr,
@@ -113,10 +113,10 @@ pub struct BlockStmt {
 
 #[derive(Debug, Clone, From, TryInto)]
 pub enum StmtKind {
-    Fun(FunDecl),
+    Fn(FnDecl),
     Struct(StructDecl),
 
-    Var(VarStmt),
+    Let(LetStmt),
     If(IfStmt),
     While(WhileStmt),
     Return(ReturnStmt),
@@ -144,7 +144,7 @@ pub struct BinaryExpr {
 }
 
 #[derive(Debug, Clone)]
-pub struct VarExpr {
+pub struct LetExpr {
     pub ident: token::Token,
 }
 
@@ -169,7 +169,7 @@ pub struct Lit {
 pub enum ExprKind {
     Unary(UnaryExpr),
     Binary(BinaryExpr),
-    Var(VarExpr),
+    Let(LetExpr),
     Call(CallExpr),
     StructLit(StructLit),
     Lit(Lit),
@@ -178,7 +178,7 @@ pub enum ExprKind {
 impl ExprKind {
     pub fn is_lvalue(&self) -> bool {
         match self {
-            Self::Var(_) => true,
+            Self::Let(_) => true,
             Self::Binary(binary_expr) => binary_expr.op.kind == token::TokenKind::Dot,
             _ => false,
         }
