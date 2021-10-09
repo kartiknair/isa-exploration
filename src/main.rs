@@ -1,4 +1,4 @@
-use std::{env, process::exit};
+use std::{env, io, process::exit};
 
 use ariadne::{Label, Report, ReportKind, Source};
 use common::Error;
@@ -79,7 +79,9 @@ filename = Path to the file that you would like to compile
 
     let risc_blocks = codegen::risc::gen(&file);
     dbg!("generated RISC asm");
-    let mut risc_machine = risc::vm::VM::<MEMORY_SIZE>::new(&risc_blocks);
+
+    let stdout = io::stdout();
+    let mut risc_machine = risc::vm::VM::<_, MEMORY_SIZE>::new(&risc_blocks, stdout);
     if cfg!(debug_assertions) {
         for block in &risc_blocks {
             println!("{}", block.as_asm())
@@ -90,7 +92,9 @@ filename = Path to the file that you would like to compile
 
     let cisc_blocks = codegen::cisc::gen(&file);
     dbg!("generated CISC asm");
-    let mut cisc_machine = cisc::vm::VM::<MEMORY_SIZE>::new(&cisc_blocks);
+
+    let stdout = io::stdout();
+    let mut cisc_machine = risc::vm::VM::<_, MEMORY_SIZE>::new(&risc_blocks, stdout);
     if cfg!(debug_assertions) {
         for block in &cisc_blocks {
             println!("{}", block.as_asm())

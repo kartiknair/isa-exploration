@@ -1,6 +1,5 @@
-use std::{collections::HashMap, convert::TryFrom};
-
 use super::inst::*;
+use std::{collections::HashMap, convert::TryFrom, io::Write};
 
 #[derive(Debug, Clone, Copy)]
 struct Registers {
@@ -100,16 +99,17 @@ impl Registers {
 }
 
 #[derive(Debug, Clone)]
-pub struct VM<'a, const MEMORY_SIZE: usize> {
+pub struct VM<'a, W: Write, const MEMORY_SIZE: usize> {
     registers: Registers,
     memory: [u8; MEMORY_SIZE],
+    pub writer: W,
 
     insts: Vec<Inst>,
     block_table: HashMap<&'a str, usize>,
 }
 
-impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
-    pub fn new(blocks: &'a [Block]) -> Self {
+impl<'a, W: Write, const MEMORY_SIZE: usize> VM<'a, W, MEMORY_SIZE> {
+    pub fn new(blocks: &'a [Block], writer: W) -> Self {
         let mut block_table = HashMap::new();
         let mut insts = Vec::new();
 
@@ -127,6 +127,7 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
         Self {
             registers: Registers::new(),
             memory: [0; MEMORY_SIZE],
+            writer,
 
             insts,
             block_table,
@@ -137,7 +138,8 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
         match inst {
             Inst::Dbg(reg) => {
                 let raw_value = self.registers.get(reg);
-                println!(
+                writeln!(
+                    self.writer,
                     "r{} = int {}, uint {}, float {}",
                     reg.get_id(),
                     raw_value as i64,
@@ -146,13 +148,13 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 );
             }
             Inst::PrintInt(reg) => {
-                println!("{}", self.registers.get(reg));
+                writeln!(self.writer, "{}", self.registers.get(reg));
             }
             Inst::PrintUInt(reg) => {
-                println!("{}", self.registers.get(reg) as i64);
+                writeln!(self.writer, "{}", self.registers.get(reg) as i64);
             }
             Inst::PrintFloat(reg) => {
-                println!("{}", f64::from_bits(self.registers.get(reg)));
+                writeln!(self.writer, "{}", f64::from_bits(self.registers.get(reg)));
             }
             Inst::Rega(dst, value) => self.registers.set(dst, value.as_u64()),
             Inst::Copy(dst, src) => self.registers.set(dst, self.registers.get(src)),

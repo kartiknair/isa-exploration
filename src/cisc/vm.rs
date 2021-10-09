@@ -1,4 +1,4 @@
-use std::{collections::HashMap, convert::TryFrom};
+use std::{collections::HashMap, convert::TryFrom, io::Write};
 
 use super::inst::*;
 
@@ -100,16 +100,17 @@ impl Registers {
 }
 
 #[derive(Debug, Clone)]
-pub struct VM<'a, const MEMORY_SIZE: usize> {
+pub struct VM<'a, W: Write, const MEMORY_SIZE: usize> {
     registers: Registers,
     memory: [u8; MEMORY_SIZE],
+    writer: W,
 
     insts: Vec<Inst>,
     block_table: HashMap<&'a str, usize>,
 }
 
-impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
-    pub fn new(blocks: &'a [Block]) -> Self {
+impl<'a, W: Write, const MEMORY_SIZE: usize> VM<'a, W, MEMORY_SIZE> {
+    pub fn new(blocks: &'a [Block], writer: W) -> Self {
         let mut block_table = HashMap::new();
         let mut insts = Vec::new();
 
@@ -127,6 +128,7 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
         Self {
             registers: Registers::new(),
             memory: [0; MEMORY_SIZE],
+            writer,
 
             insts,
             block_table,
@@ -216,7 +218,8 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
         match inst {
             Inst::Dbg(operand) => {
                 let raw_value = self.resolve_operand(operand);
-                println!(
+                writeln!(
+                    self.writer,
                     "int {}, uint {}, float {}",
                     raw_value as i64,
                     raw_value,
@@ -224,13 +227,17 @@ impl<'a, const MEMORY_SIZE: usize> VM<'a, MEMORY_SIZE> {
                 );
             }
             Inst::PrintInt(operand) => {
-                println!("{}", self.resolve_operand(operand));
+                writeln!(self.writer, "{}", self.resolve_operand(operand));
             }
             Inst::PrintUInt(operand) => {
-                println!("{}", self.resolve_operand(operand) as i64);
+                writeln!(self.writer, "{}", self.resolve_operand(operand) as i64);
             }
             Inst::PrintFloat(operand) => {
-                println!("{}", f64::from_bits(self.resolve_operand(operand)));
+                writeln!(
+                    self.writer,
+                    "{}",
+                    f64::from_bits(self.resolve_operand(operand))
+                );
             }
 
             Inst::Move(dst, src) => self.store(dst, src),

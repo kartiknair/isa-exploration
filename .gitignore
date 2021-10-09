@@ -1,1 +1,4 @@
+/pkg
 /target
+www/node_modules
+www/dist
