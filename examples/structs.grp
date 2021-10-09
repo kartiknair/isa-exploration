@@ -1,9 +1,10 @@
 struct Point {
-    x f64
-    y f64
+    x i32
+    y i32
 }
 
 fn main() {
-    let p1 = Point{x: 23.45, y: 67.89}
-    print_f64(p1.y)
+    let p1 = Point{x: 23, y: 67}
+    print_i32(p1.x)
+    print_i32(p1.y)
 }

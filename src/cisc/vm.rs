@@ -224,20 +224,22 @@ impl<'a, W: Write, const MEMORY_SIZE: usize> VM<'a, W, MEMORY_SIZE> {
                     raw_value as i64,
                     raw_value,
                     f64::from_bits(raw_value),
-                );
+                )
+                .unwrap();
             }
             Inst::PrintInt(operand) => {
-                writeln!(self.writer, "{}", self.resolve_operand(operand));
+                writeln!(self.writer, "{}", self.resolve_operand(operand)).unwrap();
             }
             Inst::PrintUInt(operand) => {
-                writeln!(self.writer, "{}", self.resolve_operand(operand) as i64);
+                writeln!(self.writer, "{}", self.resolve_operand(operand) as i64).unwrap();
             }
             Inst::PrintFloat(operand) => {
                 writeln!(
                     self.writer,
                     "{}",
                     f64::from_bits(self.resolve_operand(operand))
-                );
+                )
+                .unwrap();
             }
 
             Inst::Move(dst, src) => self.store(dst, src),

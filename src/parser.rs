@@ -171,10 +171,22 @@ impl<'a> Parser<'a> {
                 let ident = self.peek()?.clone();
                 self.current += 1;
 
-                typ = Some(ast::Type {
-                    span: ident.span.clone(),
-                    kind: ast::NamedType { name: ident }.into(),
-                });
+                if (self.current < self.tokens.len()) && self.peek()?.kind == TokenKind::Dot {
+                    self.current += 1;
+                    let segment = self
+                        .expect(TokenKind::Ident, "expect type name after module name")?
+                        .clone();
+
+                    typ = Some(ast::Type {
+                        span: ident.span,
+                        kind: ast::NamedType { name: segment }.into(),
+                    });
+                } else {
+                    typ = Some(ast::Type {
+                        span: ident.span.clone(),
+                        kind: ast::NamedType { name: ident }.into(),
+                    });
+                }
             }
             TokenKind::LeftParen => {
                 // Type grouping, does not get a seperate AST node but makes is
@@ -223,18 +235,23 @@ impl<'a> Parser<'a> {
                     self.current += 1;
 
                     let mut inits = Vec::new();
-                    while self.peek()?.kind != TokenKind::RightBrace {
-                        let init_ident = self
-                            .expect(TokenKind::Ident, "expect initializer name")?
-                            .clone();
-                        self.expect(TokenKind::Colon, "expect ':' after initializer name")?;
-                        let init_expr = self.parse_expr()?;
-                        inits.push((init_ident, init_expr));
+                    if self.peek()?.kind != TokenKind::RightBrace {
+                        loop {
+                            let init_ident = self
+                                .expect(TokenKind::Ident, "expect initializer name")?
+                                .clone();
+                            self.expect(
+                                TokenKind::Colon,
+                                "expect ':' after member name in struct literal",
+                            )?;
+                            let init_expr = self.parse_expr()?;
+                            inits.push((init_ident, init_expr));
 
-                        if self.peek()?.kind != TokenKind::Comma {
-                            break;
-                        } else {
-                            self.current += 1;
+                            if self.peek()?.kind != TokenKind::Comma {
+                                break;
+                            } else {
+                                self.current += 1;
+                            }
                         }
                     }
 
@@ -259,7 +276,7 @@ impl<'a> Parser<'a> {
                 } else {
                     expr = Some(ast::Expr {
                         span: token.span.clone(),
-                        kind: ast::LetExpr {
+                        kind: ast::VarExpr {
                             ident: token.clone(),
                         }
                         .into(),
@@ -290,7 +307,7 @@ impl<'a> Parser<'a> {
         };
 
         while self.peek()?.kind == TokenKind::LeftParen {
-            if let TokenKind::LeftParen = &self.peek()?.kind {
+            if let TokenKind::LeftParen = self.peek()?.kind {
                 self.current += 1;
 
                 let mut args = Vec::new();
@@ -402,11 +419,9 @@ impl<'a> Parser<'a> {
                     _ => Some(self.parse_type()?),
                 };
 
-                let block = if self.peek()?.kind == TokenKind::LeftBrace {
-                    self.parse_block()?
-                } else {
-                    return Err(self.peek()?.error_at("expect function body"));
-                };
+                self.expect(TokenKind::LeftBrace, "expect function body")?;
+                self.current -= 1;
+                let block = self.parse_block()?;
 
                 Ok(ast::Stmt {
                     kind: ast::StmtKind::Fn(ast::FnDecl {
@@ -461,9 +476,12 @@ impl<'a> Parser<'a> {
                 } else {
                     None
                 };
-
-                self.expect(TokenKind::Equal, "expect initial value for variable")?;
-                let init = self.parse_expr()?;
+                let init = if self.peek()?.kind == TokenKind::Equal {
+                    self.current += 1;
+                    self.parse_expr()?
+                } else {
+                    return Err(self.peek()?.error_at("expect variable initializer"));
+                };
 
                 self.expect(
                     TokenKind::Semicolon,
@@ -543,6 +561,9 @@ impl<'a> Parser<'a> {
                     pointer: token.span.clone(),
                 })
             }
+            TokenKind::Fn | TokenKind::Struct => {
+                Err(token.error_at("declarations must be at the top-level"))
+            }
             _ => {
                 let expr = self.parse_expr()?;
                 self.expect(
@@ -560,14 +581,14 @@ impl<'a> Parser<'a> {
 }
 
 pub fn parse(tokens: &[Token]) -> Result<Vec<ast::Stmt>, Error> {
-    let mut stmts = Vec::new();
+    let mut decls = Vec::new();
 
     if !tokens.is_empty() {
         let mut parser = Parser::new(tokens);
         while parser.peek()?.kind != TokenKind::Eof {
-            stmts.push(parser.parse_stmt()?);
+            decls.push(parser.parse_stmt()?);
         }
     }
 
-    Ok(stmts)
+    Ok(decls)
 }

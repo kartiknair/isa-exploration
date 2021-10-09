@@ -313,7 +313,7 @@ impl<'a> Generator<'a> {
                         let value_reg = self.get_tmp_reg();
                         block.insts.push(Inst::Move(
                             Operand::Data(value_reg),
-                            Operand::Data(member_adr_reg),
+                            Operand::Adr(member_adr_reg),
                         ));
 
                         self.make_reg_available(&member_adr_reg);
@@ -638,7 +638,7 @@ impl<'a> Generator<'a> {
 
                         block
                             .insts
-                            .push(Inst::Move(Operand::Data(Register::Rsp), member_value));
+                            .push(Inst::Move(Operand::Adr(Register::Rsp), member_value));
                         block.insts.push(Inst::UAdd(
                             Operand::Data(Register::Rsp),
                             Operand::Imm(Imm::Int(8)),
@@ -649,7 +649,7 @@ impl<'a> Generator<'a> {
                         self.current_stack_offset += 8;
                     }
 
-                    Operand::Adr(struct_stack_offset_reg)
+                    Operand::Data(struct_stack_offset_reg)
                 } else {
                     unreachable!()
                 }

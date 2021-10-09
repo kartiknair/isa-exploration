@@ -94,7 +94,7 @@ filename = Path to the file that you would like to compile
     dbg!("generated CISC asm");
 
     let stdout = io::stdout();
-    let mut cisc_machine = risc::vm::VM::<_, MEMORY_SIZE>::new(&risc_blocks, stdout);
+    let mut cisc_machine = cisc::vm::VM::<_, MEMORY_SIZE>::new(&cisc_blocks, stdout);
     if cfg!(debug_assertions) {
         for block in &cisc_blocks {
             println!("{}", block.as_asm())

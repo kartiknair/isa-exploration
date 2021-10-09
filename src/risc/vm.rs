@@ -145,16 +145,17 @@ impl<'a, W: Write, const MEMORY_SIZE: usize> VM<'a, W, MEMORY_SIZE> {
                     raw_value as i64,
                     raw_value,
                     f64::from_bits(raw_value),
-                );
+                )
+                .unwrap();
             }
             Inst::PrintInt(reg) => {
-                writeln!(self.writer, "{}", self.registers.get(reg));
+                writeln!(self.writer, "{}", self.registers.get(reg)).unwrap();
             }
             Inst::PrintUInt(reg) => {
-                writeln!(self.writer, "{}", self.registers.get(reg) as i64);
+                writeln!(self.writer, "{}", self.registers.get(reg) as i64).unwrap();
             }
             Inst::PrintFloat(reg) => {
-                writeln!(self.writer, "{}", f64::from_bits(self.registers.get(reg)));
+                writeln!(self.writer, "{}", f64::from_bits(self.registers.get(reg))).unwrap();
             }
             Inst::Rega(dst, value) => self.registers.set(dst, value.as_u64()),
             Inst::Copy(dst, src) => self.registers.set(dst, self.registers.get(src)),

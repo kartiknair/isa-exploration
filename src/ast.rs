@@ -144,7 +144,7 @@ pub struct BinaryExpr {
 }
 
 #[derive(Debug, Clone)]
-pub struct LetExpr {
+pub struct VarExpr {
     pub ident: token::Token,
 }
 
@@ -169,7 +169,7 @@ pub struct Lit {
 pub enum ExprKind {
     Unary(UnaryExpr),
     Binary(BinaryExpr),
-    Let(LetExpr),
+    Let(VarExpr),
     Call(CallExpr),
     StructLit(StructLit),
     Lit(Lit),
