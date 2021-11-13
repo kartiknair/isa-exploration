@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8" />
+		<title>ISA Playground</title>
+		<style>
+			html,
+			body,
+			main {
+				width: 100%;
+				height: 100%;
+				margin: 0;
+				padding: 0;
+				background: #1e1e1e;
+			}
+
+			main {
+				display: flex;
+				align-items: center;
+				height: 97%;
+				margin-top: 3%;
+			}
+
+			#source-editor,
+			.stack {
+				width: 33%;
+			}
+
+			#source-editor {
+				height: 100%;
+			}
+
+			#risc-asm,
+			#cisc-asm {
+				height: 70%;
+			}
+
+			#risc-terminal,
+			#cisc-terminal {
+				height: 30%;
+			}
+
+			.stack {
+				display: flex;
+				height: 100%;
+				flex-direction: column;
+			}
+		</style>
+	</head>
+	<body>
+		<noscript
+			>This page contains webassembly and javascript content, please
+			enable javascript in your browser to make use of it.</noscript
+		>
+		<main>
+			<div id="source-editor"></div>
+			<div class="stack">
+				<div id="risc-asm"></div>
+				<div id="risc-terminal"></div>
+			</div>
+			<div class="stack">
+				<div id="cisc-asm"></div>
+				<div id="cisc-terminal"></div>
+			</div>
+		</main>
+		<script src="./bootstrap.js"></script>
+	</body>
+</html>

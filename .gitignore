@@ -1,7 +1,5 @@
-/pkg
 /target
-
-/www/pkg
-/www/node_modules
-/www/public
-/www/.vercel
+Cargo.lock
+/.vercel
+/node_modules
+/pkg

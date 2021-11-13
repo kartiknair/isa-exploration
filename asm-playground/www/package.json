@@ -1,0 +1,24 @@
+{
+	"name": "isa-playground",
+	"version": "0.1.0",
+	"main": "index.js",
+	"scripts": {
+		"build": "webpack --config ./webpack.config.js",
+		"start": "webpack-dev-server"
+	},
+	"license": "MIT",
+	"dependencies": {
+		"isas": "file:./pkg",
+		"monaco-editor": "^0.29.0"
+	},
+	"devDependencies": {
+		"copy-webpack-plugin": "^5.0.0",
+		"css-loader": "^6.4.0",
+		"file-loader": "^6.2.0",
+		"monaco-editor-webpack-plugin": "^5.0.0",
+		"style-loader": "^3.3.0",
+		"webpack": "^5.58.1",
+		"webpack-cli": "^4.9.0",
+		"webpack-dev-server": "^4.3.1"
+	}
+}
